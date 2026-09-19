@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using StoicGoose.Common.OpenGL;
@@ -75,6 +76,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
         bool wasFrameBegun = false;
 
         Vector2 lastMouseWheelOffset = default;
+        readonly bool[] mouseDownLatch = new bool[3];
+        readonly bool[] mouseUpLatch = new bool[3];
 
         public List<WindowBase> OpenWindows => [.. windowList.Where(x => x.window.IsWindowOpen).Select(x => x.window)];
 
@@ -82,6 +85,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
         {
             gameWindow = window;
             gameWindow.TextInput += (e) => pressedChars.Add((char)e.Unicode);
+            gameWindow.MouseDown += OnMouseDown;
+            gameWindow.MouseUp += OnMouseUp;
 
             imguiContext = ImGui.CreateContext();
             ImGui.SetCurrentContext(imguiContext);
@@ -267,9 +272,9 @@ namespace StoicGoose.ImGuiCommon.Handlers
             var keyboardState = gameWindow.KeyboardState;
 
             var io = ImGui.GetIO();
-            io.MouseDown[0] = mouseState[MouseButton.Left];
-            io.MouseDown[1] = mouseState[MouseButton.Right];
-            io.MouseDown[2] = mouseState[MouseButton.Middle];
+            io.MouseDown[0] = ResolveMouseDown(0, mouseState[MouseButton.Left]);
+            io.MouseDown[1] = ResolveMouseDown(1, mouseState[MouseButton.Right]);
+            io.MouseDown[2] = ResolveMouseDown(2, mouseState[MouseButton.Middle]);
             io.MousePos = new NumericsVector2(mousePos.X, mousePos.Y);
 
             io.AddMouseWheelEvent(
@@ -290,6 +295,45 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
             lastMouseWheelOffset = mouseState.Scroll;
         }
+
+        void OnMouseDown(MouseButtonEventArgs e)
+        {
+            var index = MapMouseButton(e.Button);
+            if (index < 0) return;
+            mouseDownLatch[index] = true;
+        }
+
+        void OnMouseUp(MouseButtonEventArgs e)
+        {
+            var index = MapMouseButton(e.Button);
+            if (index < 0) return;
+            mouseUpLatch[index] = true;
+        }
+
+        bool ResolveMouseDown(int index, bool currentlyDown)
+        {
+            if (mouseDownLatch[index])
+            {
+                mouseDownLatch[index] = false;
+                return true;
+            }
+
+            if (mouseUpLatch[index])
+            {
+                mouseUpLatch[index] = false;
+                return false;
+            }
+
+            return currentlyDown;
+        }
+
+        static int MapMouseButton(MouseButton button) => button switch
+        {
+            MouseButton.Left => 0,
+            MouseButton.Right => 1,
+            MouseButton.Middle => 2,
+            _ => -1
+        };
 
         public void RegisterWindow(WindowBase window, Func<object> getUserData)
         {
