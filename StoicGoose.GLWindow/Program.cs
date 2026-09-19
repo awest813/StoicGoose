@@ -31,7 +31,7 @@ namespace StoicGoose.GLWindow
 
         public static string ProductName => string.IsNullOrWhiteSpace(assemblyVersionInfo.ProductName) ? "StoicGoose" : assemblyVersionInfo.ProductName;
 
-        readonly static string mutexName = $"{ProductName}_{GetVersionDetails()}";
+        readonly static string mutexName = ApplicationPaths.SanitizeMutexName($"{ProductName}_{GetVersionDetails()}");
 
         readonly static string programDataDirectory = ApplicationPaths.GetDataDirectory(ProductName);
         readonly static string programConfigPath = Path.Combine(programDataDirectory, jsonConfigFileName);

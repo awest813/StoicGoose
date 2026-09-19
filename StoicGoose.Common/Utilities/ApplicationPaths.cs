@@ -50,6 +50,22 @@ namespace StoicGoose.Common.Utilities
 			return Path.IsPathRooted(root);
 		}
 
+		public static string SanitizeMutexName(string name)
+		{
+			if (string.IsNullOrEmpty(name))
+				return "StoicGoose";
+
+			var buffer = name.ToCharArray();
+			for (var i = 0; i < buffer.Length; i++)
+			{
+				var c = buffer[i];
+				if (!(char.IsLetterOrDigit(c) || c is '-' or '_' or '.' or '+'))
+					buffer[i] = '_';
+			}
+
+			return new string(buffer);
+		}
+
 		static bool TryEnsureDirectory(string path)
 		{
 			if (string.IsNullOrWhiteSpace(path) || File.Exists(path))

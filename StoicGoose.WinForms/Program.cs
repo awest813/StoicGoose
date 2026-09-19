@@ -31,7 +31,7 @@ namespace StoicGoose.WinForms
 
         static string ProductName => string.IsNullOrWhiteSpace(Application.ProductName) ? "StoicGoose" : Application.ProductName;
 
-        readonly static string mutexName = $"{ProductName}_{GetVersionDetails()}";
+        readonly static string mutexName = ApplicationPaths.SanitizeMutexName($"{ProductName}_{GetVersionDetails()}");
 
         readonly static string programDataDirectory = ApplicationPaths.GetDataDirectory(ProductName);
         readonly static string programConfigPath = Path.Combine(programDataDirectory, jsonConfigFileName);
