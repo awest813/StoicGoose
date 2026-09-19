@@ -647,6 +647,7 @@ namespace StoicGoose.WinForms
             CreateRecentFilesMenu();
 
             LoadRam();
+            LoadRtc();
             LoadCheats();
 
             LoadBootstrap(emulatorHandler.Machine is WonderSwan ? Program.Configuration.General.BootstrapFile : Program.Configuration.General.BootstrapFileWSC);
@@ -687,6 +688,7 @@ namespace StoicGoose.WinForms
         {
             SaveInternalEeprom();
             SaveRam();
+            SaveRtc();
             SaveCheats();
         }
 
@@ -705,6 +707,33 @@ namespace StoicGoose.WinForms
             if (data.Length == 0) return;
 
             var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sav");
+
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            stream.Write(data, 0, data.Length);
+        }
+
+        private void LoadRtc()
+        {
+            if (!emulatorHandler.Machine.HasRtcSave) return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.rtc");
+            if (!File.Exists(path)) return;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var data = new byte[stream.Length];
+            stream.ReadExactly(data);
+            if (data.Length != 0)
+                emulatorHandler.Machine.LoadRtcState(data);
+        }
+
+        private void SaveRtc()
+        {
+            if (!emulatorHandler.Machine.HasRtcSave) return;
+
+            var data = emulatorHandler.Machine.GetRtcState();
+            if (data.Length == 0) return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.rtc");
 
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             stream.Write(data, 0, data.Length);

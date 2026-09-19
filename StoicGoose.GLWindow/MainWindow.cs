@@ -49,7 +49,7 @@ namespace StoicGoose.GLWindow
         Breakpoint lastBreakpointHit = default;
 
         /* Misc. runtime variables */
-        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
+        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartRtcFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
         bool isRunning = false, isPaused = false, isVerticalOrientation = false;
         double framesPerSecond = 0.0;
 
@@ -347,6 +347,7 @@ namespace StoicGoose.GLWindow
         private void SaveVolatileData()
         {
             SaveCartridgeRam();
+            SaveCartridgeRtc();
             SaveInternalEeprom();
 
             SaveMemoryPatches();
@@ -450,6 +451,7 @@ namespace StoicGoose.GLWindow
 
             cartridgeFilename = filename;
             cartSaveFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.sav";
+            cartRtcFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.rtc";
             cartPatchFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_patches.json";
             cartBreakpointFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_breakpoints.json";
 
@@ -462,6 +464,7 @@ namespace StoicGoose.GLWindow
             inputHandler.SetVerticalOrientation(isVerticalOrientation);
 
             LoadCartridgeRam();
+            LoadCartridgeRtc();
             LoadBootstrap();
             LoadInternalEeprom();
 
@@ -566,6 +569,32 @@ namespace StoicGoose.GLWindow
             if (data.Length == 0) return;
 
             var path = Path.Combine(Program.SaveDataPath, cartSaveFilename);
+
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            stream.Write(data, 0, data.Length);
+        }
+
+        private void LoadCartridgeRtc()
+        {
+            if (machine == null || !machine.HasRtcSave) return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartRtcFilename);
+            if (!File.Exists(path)) return;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var data = new byte[stream.Length];
+            stream.ReadExactly(data);
+            if (data.Length != 0) machine.LoadRtcState(data);
+        }
+
+        private void SaveCartridgeRtc()
+        {
+            if (machine == null || !machine.HasRtcSave) return;
+
+            var data = machine.GetRtcState();
+            if (data.Length == 0) return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartRtcFilename);
 
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             stream.Write(data, 0, data.Length);

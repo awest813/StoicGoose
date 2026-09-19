@@ -299,8 +299,6 @@ namespace StoicGoose.GLWindow.Interface.Windows
                 ImGui.Separator();
                 ImGui.Dummy(new(0f, 2f));
 
-                // TODO: clean up controls and cpu status stuffs
-
                 if (ImGui.BeginChild("##controls", new(0f, controlsHeight)))
                 {
                     if (!isRunning) ImGui.BeginDisabled();
@@ -410,8 +408,6 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 if (ImGui.BeginChild("##processor", NumericsVector2.Zero))
                 {
-                    // TODO: better layout?
-
                     var drawListProcessor = ImGui.GetWindowDrawList();
 
                     var height = ImGui.GetTextLineHeightWithSpacing();
@@ -449,7 +445,8 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     pos.Y = posStart.Y;
 
                     pos.X = windowPos.X + glyphSize.X * 49f;
-                    drawListProcessor.AddText(pos, colorText, $"CPU Halted? {machine.Cpu.IsHalted}"); pos.X += glyphSize.X * 25f;
+                    drawListProcessor.AddText(pos, colorText, $"CPU Halted? {machine.Cpu.IsHalted}"); pos.X += glyphSize.X * 16f;
+                    drawListProcessor.AddText(pos, machine.IsPoweredOff ? colorText : colorDisabled, $"Powered Off: {machine.IsPoweredOff}"); pos.X += glyphSize.X * 20f;
                     drawListProcessor.AddText(pos, colorText, $"Scanline: {machine.DisplayController.LineCurrent,3}");
                     pos.Y += height + lineHeight * 0.75f;
 

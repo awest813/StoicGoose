@@ -58,9 +58,12 @@ namespace StoicGoose.Core.Interfaces
         void LoadInternalEeprom(byte[] data);
         void LoadRom(byte[] data);
         void LoadSaveData(byte[] data);
+        void LoadRtcState(byte[] data);
 
         byte[] GetInternalEeprom();
         byte[] GetSaveData();
+        byte[] GetRtcState();
+        bool HasRtcSave { get; }
 
         byte ReadMemory(uint address);
         void WriteMemory(uint address, byte value);

@@ -268,6 +268,10 @@ namespace StoicGoose.Core.Machines
                 Cartridge.LoadEeprom(data);
         }
 
+        public void LoadRtcState(byte[] data) => Cartridge.LoadRtcState(data);
+
+        public bool HasRtcSave => Cartridge.HasRtc;
+
         public byte[] GetInternalEeprom()
         {
             return InternalEeprom.GetContents();
@@ -285,6 +289,8 @@ namespace StoicGoose.Core.Machines
 
             return [];
         }
+
+        public byte[] GetRtcState() => Cartridge.GetRtcState() ?? [];
 
         public byte ReadMemory(uint address)
         {

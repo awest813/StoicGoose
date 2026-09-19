@@ -61,14 +61,11 @@ namespace StoicGoose.Core.Cartridges
             //
         }
 
+        public const int StateSize = 11;
+
         public void Reset()
         {
-            wsData = 0;
-            payloadIndex = 0;
-
-            command = 0;
-            isReadAccess = false;
-            ackPending = false;
+            ResetCommunication();
 
             year = dayOfWeek = hour = minute = second = 0;
             month = day = 1;
@@ -78,10 +75,65 @@ namespace StoicGoose.Core.Cartridges
             isPowered = intFE = true;
 
             intRegister = 0x8000;
+        }
+
+        public void ResetCommunication()
+        {
+            wsData = 0;
+            payloadIndex = 0;
+
+            command = 0;
+            isReadAccess = false;
+            ackPending = false;
 
             cycleCount = 0;
             freqCycleCount = 0;
             minuteEdgePending = false;
+        }
+
+        public byte[] ExportState()
+        {
+            byte flags = 0;
+            ChangeBit(ref flags, 0, isPm);
+            ChangeBit(ref flags, 1, isTestModeActive);
+            ChangeBit(ref flags, 2, isPowered);
+            ChangeBit(ref flags, 3, is24HourMode);
+            ChangeBit(ref flags, 4, intAE);
+            ChangeBit(ref flags, 5, intME);
+            ChangeBit(ref flags, 6, intFE);
+
+            return
+            [
+                1,
+                year, month, day, dayOfWeek, hour, minute, second,
+                flags,
+                (byte)(intRegister & 0xFF),
+                (byte)(intRegister >> 8),
+            ];
+        }
+
+        public void ImportState(byte[] data)
+        {
+            if (data == null || data.Length < StateSize || data[0] != 1)
+                return;
+
+            year = data[1];
+            month = data[2];
+            day = data[3];
+            dayOfWeek = data[4];
+            hour = data[5];
+            minute = data[6];
+            second = data[7];
+
+            isPm = IsBitSet(data[8], 0);
+            isTestModeActive = IsBitSet(data[8], 1);
+            isPowered = IsBitSet(data[8], 2);
+            is24HourMode = IsBitSet(data[8], 3);
+            intAE = IsBitSet(data[8], 4);
+            intME = IsBitSet(data[8], 5);
+            intFE = IsBitSet(data[8], 6);
+
+            intRegister = (ushort)(data[9] | (data[10] << 8));
         }
 
         public void Shutdown()

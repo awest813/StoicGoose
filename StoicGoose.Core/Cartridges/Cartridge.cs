@@ -41,7 +41,7 @@ namespace StoicGoose.Core.Cartridges
             romBank1 = 0xFF;
 
             eeprom?.Reset();
-            rtc?.Reset();
+            rtc?.ResetCommunication();
         }
 
         public void Shutdown()
@@ -79,6 +79,7 @@ namespace StoicGoose.Core.Cartridges
             {
                 // NOTE: "RTC present" flag is not entirely consistent; ex. Digimon Tamers Battle Spirit has the flag, but does not have an RTC
                 rtc = new RTC();
+                rtc.Reset();
             }
 
             Crc32 = Common.Utilities.Crc32.Calculate(rom);
@@ -123,6 +124,12 @@ namespace StoicGoose.Core.Cartridges
         {
             return eeprom?.GetContents().Clone() as byte[];
         }
+
+        public bool HasRtc => rtc != null;
+
+        public byte[] GetRtcState() => rtc?.ExportState();
+
+        public void LoadRtcState(byte[] data) => rtc?.ImportState(data);
 
         public bool Step(int clockCyclesInStep)
         {

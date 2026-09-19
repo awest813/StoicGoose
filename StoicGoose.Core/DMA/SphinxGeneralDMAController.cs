@@ -10,7 +10,7 @@ namespace StoicGoose.Core.DMA
 
         /* REG_DMA_SRC(_HI) */
         uint dmaSource;
-        /* REG_DMA_DST */
+        /* REG_DMA_DST — destination is IRAM only (ports $44–$45; $43 unmapped) */
         ushort dmaDestination;
         /* REG_DMA_LEN */
         ushort dmaLength;
@@ -54,13 +54,17 @@ namespace StoicGoose.Core.DMA
                     return;
                 }
 
-                machine.WriteMemory((uint)(dmaDestination + 0), machine.ReadMemory(dmaSource + 0));
-                machine.WriteMemory((uint)(dmaDestination + 1), machine.ReadMemory(dmaSource + 1));
+                var destination = (uint)(dmaDestination & 0xFFFE);
+                machine.WriteMemory(destination, machine.ReadMemory(dmaSource));
+                machine.WriteMemory((uint)(destination + 1), machine.ReadMemory(dmaSource + 1));
 
                 dmaSource += (uint)(IsDecrementMode ? -2 : 2);
                 dmaDestination += (ushort)(IsDecrementMode ? -2 : 2);
                 dmaLength -= 2;
                 cycleCount -= 2;
+
+                if (dmaLength == 0)
+                    ChangeBit(ref dmaControl, 7, false);
             }
         }
 
