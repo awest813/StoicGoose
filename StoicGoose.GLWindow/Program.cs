@@ -31,7 +31,7 @@ namespace StoicGoose.GLWindow
 
         public static string ProductName => assemblyVersionInfo.ProductName;
 
-        readonly static string mutexName = $"{assemblyVersionInfo.ProductName}_{GetVersionDetails()}";
+        readonly static string mutexName = SanitizeMutexName($"{assemblyVersionInfo.ProductName}_{GetVersionDetails()}");
 
         readonly static string programDataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), assemblyVersionInfo.ProductName);
         readonly static string programConfigPath = Path.Combine(programDataDirectory, jsonConfigFileName);
@@ -150,6 +150,14 @@ namespace StoicGoose.GLWindow
         private static string GetVersionDetails()
         {
             return $"{ThisAssembly.Git.Branch}-{ThisAssembly.Git.Commit}{(ThisAssembly.Git.IsDirty ? "-dirty" : string.Empty)}{(GlobalVariables.IsDebugBuild ? "+debug" : string.Empty)}";
+        }
+
+        private static string SanitizeMutexName(string name)
+        {
+            // Named mutexes are backed by named semaphores on Unix, where path
+            // separators are invalid; branch names such as "feature/foo" would
+            // otherwise throw on startup. Replace them so the name stays valid.
+            return name.Replace('/', '_').Replace('\\', '_');
         }
 
         public static string GetVersionString(bool detailed)
