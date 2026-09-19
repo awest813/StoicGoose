@@ -64,7 +64,7 @@
             "OkayButton": "OK",
         },
         "DisplayWindow": {
-            "NoRom": "Open a ROM from File → Open..."
+            "NoRom": "Open a ROM from File > Open..."
         },
         "InputSettings": {
             "Game": "Game",
@@ -143,7 +143,7 @@
             "OkayButton": "OK",
         },
         "DisplayWindow": {
-            "NoRom": "ROM über Datei → Öffnen... laden"
+            "NoRom": "ROM über Datei > Öffnen... laden"
         },
         "InputSettings": {
             "Game": "Spiel",

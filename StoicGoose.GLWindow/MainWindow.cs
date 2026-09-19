@@ -212,7 +212,7 @@ namespace StoicGoose.GLWindow
             statusRunningItem.Label = isPaused ? Localizer.GetString("MainWindow.StatusRunningPaused") : (isRunning ? Localizer.GetString("MainWindow.StatusRunningRunning") : Localizer.GetString("MainWindow.StatusRunningStopped"));
             statusRunningItem.IsEnabled = isRunning && !isPaused;
 
-            statusFpsItem.Label = isRunning ? $"{framesPerSecond:0} fps" : "—";
+            statusFpsItem.Label = isRunning ? $"{framesPerSecond:0} fps" : "--";
             statusFpsItem.IsEnabled = isRunning && !isPaused;
 
             base.OnUpdateFrame(args);
