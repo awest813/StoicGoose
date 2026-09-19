@@ -53,7 +53,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifacts }}-${{ github.ref_name }}-${{ github.sha }}
+          name: ${{ matrix.artifacts }}-${{ github.run_id }}-${{ github.sha }}
           path: ${{ github.workspace }}/release/*
 
   build-linux:
@@ -92,5 +92,5 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StoicGoose.GLWindow-linux-artifacts-${{ github.ref_name }}-${{ github.sha }}
+          name: StoicGoose.GLWindow-linux-artifacts-${{ github.run_id }}-${{ github.sha }}
           path: ${{ github.workspace }}/release/*

@@ -343,8 +343,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         ImGui.SameLine();
                         ImGui.Text("Code jump: ");
                         ImGui.SameLine();
-                        if (ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags))
-                            disasmGotoAddr = int.Parse(disasmAddrInputBuf, NumberStyles.HexNumber);
+                        if (ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags) &&
+                            int.TryParse(disasmAddrInputBuf, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsedDisasmAddr))
+                            disasmGotoAddr = parsedDisasmAddr;
                     }
 
                     if (ImGui.Button("Reset", new(buttonWidth, 0f))) machine.Reset();
@@ -367,8 +368,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         ImGui.SameLine();
                         ImGui.Text("Stack jump:");
                         ImGui.SameLine();
-                        if (ImGui.InputText("##stack-addr", ref stackAddrInputBuf, 4, gotoInputFlags))
-                            stackGotoAddr = int.Parse(stackAddrInputBuf, NumberStyles.HexNumber);
+                        if (ImGui.InputText("##stack-addr", ref stackAddrInputBuf, 4, gotoInputFlags) &&
+                            int.TryParse(stackAddrInputBuf, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsedStackAddr))
+                            stackGotoAddr = parsedStackAddr;
                     }
 
                     ImGui.Checkbox("Trace execution", ref traceExecution);
