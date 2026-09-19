@@ -68,6 +68,8 @@ namespace StoicGoose.GLWindow
 
         protected override void OnLoad()
         {
+            CursorState = CursorState.Normal;
+
             InitializeUI();
             LocalizeUI();
 

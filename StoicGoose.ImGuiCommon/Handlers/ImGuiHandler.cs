@@ -102,6 +102,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
                 ShaderFactory.FromSource(ShaderType.FragmentShader, glslVersionString, string.Join(Environment.NewLine, fragmentShaderSource)));
 
             var io = ImGui.GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 
             io.Fonts.AddFontDefault();
             UpdateFontTexture(io);
