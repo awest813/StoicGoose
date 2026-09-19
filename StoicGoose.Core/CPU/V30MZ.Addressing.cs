@@ -76,14 +76,12 @@
 
         private byte ReadOpcodeIb()
         {
-            return ReadMemory8(cs, ip++);
+            return FetchByte();
         }
 
         private ushort ReadOpcodeIw()
         {
-            var value = ReadMemory16(cs, ip);
-            ip += 2;
-            return value;
+            return FetchWord();
         }
 
         private ushort ReadOpcodeJb()

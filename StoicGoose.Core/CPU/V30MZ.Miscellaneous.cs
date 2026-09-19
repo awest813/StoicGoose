@@ -18,19 +18,19 @@
         private int Loop()
         {
             if (--cx.Word != 0) { ip = ReadOpcodeJb(); return 4; }
-            else { ip++; return 1; }
+            else { FetchByte(); return 1; }
         }
 
         private int LoopWhile(bool condition)
         {
             if (--cx.Word != 0 && condition) { ip = ReadOpcodeJb(); return 5; }
-            else { ip++; return 2; }
+            else { FetchByte(); return 2; }
         }
 
         private int JumpConditional(bool condition)
         {
             if (condition) { ip = ReadOpcodeJb(); return 4; }
-            else { ip++; return 1; }
+            else { FetchByte(); return 1; }
         }
 
         private static bool CalculateParity(int result)

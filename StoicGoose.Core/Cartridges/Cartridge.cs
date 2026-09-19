@@ -42,9 +42,6 @@ namespace StoicGoose.Core.Cartridges
 
             eeprom?.Reset();
             rtc?.Reset();
-
-            // HACK: set RTC to current date/time on boot for testing
-            rtc?.Program(DateTime.Now);
         }
 
         public void Shutdown()
@@ -71,8 +68,7 @@ namespace StoicGoose.Core.Cartridges
                 {
                     switch (metadata.SaveType)
                     {
-                        // TODO: verify size/address bits
-                        case Metadata.SaveTypes.Eeprom1Kbit: eeprom = new EEPROM(metadata.SaveSize, 6); break;
+                        case Metadata.SaveTypes.Eeprom1Kbit: eeprom = new EEPROM(metadata.SaveSize, 6); break; // M93LC46, 6 address bits
                         case Metadata.SaveTypes.Eeprom16Kbit: eeprom = new EEPROM(metadata.SaveSize, 10); break;
                         case Metadata.SaveTypes.Eeprom8Kbit: eeprom = new EEPROM(metadata.SaveSize, 9); break;
                     }
@@ -105,16 +101,6 @@ namespace StoicGoose.Core.Cartridges
             Log.WriteLine($"  Checksum (calculated): 0x{Metadata.CalculatedChecksum:X4}");
             Log.WriteLine($"  Checksum is {(metadata.IsChecksumValid ? $"{Ansi.Green}valid" : $"{Ansi.Red}invalid")}{Ansi.Reset}!");
 
-            if (metadata.PublisherId == 0x01 && metadata.GameId == 0x27)
-            {
-                // HACK: Meitantei Conan - Nishi no Meitantei Saidai no Kiki, prevent crash on startup (see TODO in V30MZ, prefetching)
-                rom[0xFFFE8] = 0xEA;
-                rom[0xFFFE9] = 0x00;
-                rom[0xFFFEA] = 0x00;
-                rom[0xFFFEB] = 0x00;
-                rom[0xFFFEC] = 0x20;
-                Log.WriteLine($"~ {Ansi.Red}Conan prefetch hack enabled{Ansi.Reset} ~");
-            }
         }
 
         public void LoadSram(byte[] data)

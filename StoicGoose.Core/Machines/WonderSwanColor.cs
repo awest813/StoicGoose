@@ -27,7 +27,7 @@ namespace StoicGoose.Core.Machines
             { 0x77, 0x00 }, // ""
             { 0x78, 0x00 }, // Last game played, game ID [none]
             { 0x79, 0x00 }, // ""
-            { 0x7A, 0x00 }, // Swan ID (see Mama Mitte) -- TODO: set to valid/random value?
+            { 0x7A, 0x00 }, // Swan ID low (assigned on first boot if unset)
             { 0x7B, 0x00 }, // ""
             { 0x7C, 0x00 }, // Number of different games played [none]
             { 0x7D, 0x00 }, // Number of times settings were changed [none]
@@ -90,7 +90,9 @@ namespace StoicGoose.Core.Machines
             {
                 HandleInterrupts();
 
-                var currentCpuClockCycles = DmaController.IsActive ? DmaController.Step() : Cpu.Step();
+                var currentCpuClockCycles = Cpu.Step();
+                if (DmaController.IsActive)
+                    DmaController.Step(currentCpuClockCycles);
 
                 var displayInterrupt = DisplayController.Step(currentCpuClockCycles);
                 if (displayInterrupt.HasFlag(DisplayControllerCommon.DisplayInterrupts.LineCompare)) RaiseInterrupt(4);
@@ -293,9 +295,7 @@ namespace StoicGoose.Core.Machines
                 case 0x62:
                     /* REG_WSC_SYSTEM */
                     if (IsBitSet(value, 0))
-                    {
-                        // TODO: power-off bit, stop emulation?
-                    }
+                        PowerOff();
                     break;
 
                 /* System controller */

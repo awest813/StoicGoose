@@ -27,6 +27,9 @@ namespace StoicGoose.Core.Interfaces
         string InternalEepromDefaultUsername { get; }
         Dictionary<ushort, byte> InternalEepromDefaultData { get; }
 
+        bool IsSphinxCpu { get; }
+        bool IsPoweredOff { get; }
+
         Cartridge Cartridge { get; }
         V30MZ Cpu { get; }
         DisplayControllerCommon DisplayController { get; }

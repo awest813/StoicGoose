@@ -30,6 +30,8 @@ namespace StoicGoose.Core.Machines
         public abstract string InternalEepromDefaultUsername { get; }
         public abstract Dictionary<ushort, byte> InternalEepromDefaultData { get; }
 
+        public virtual bool IsSphinxCpu => isWSCOrGreater;
+
         public const double MasterClock = 12288000.0; /* 12.288 MHz xtal */
         public const double CpuClock = MasterClock / 4.0; /* /4 = 3.072 MHz */
 
@@ -60,6 +62,7 @@ namespace StoicGoose.Core.Machines
         public Func<bool> RunStepCallback { get; set; } = default;
 
         protected bool cancelFrameExecution = false;
+        public bool IsPoweredOff { get; private set; }
 
         public int CurrentClockCyclesInLine { get; protected set; } = 0;
         public int CurrentClockCyclesInFrame { get; protected set; } = 0;
@@ -110,6 +113,8 @@ namespace StoicGoose.Core.Machines
 
             ResetRegisters();
 
+            IsPoweredOff = false;
+
             Log.WriteEvent(LogSeverity.Information, this, "Machine reset.");
         }
 
@@ -142,6 +147,17 @@ namespace StoicGoose.Core.Machines
             var data = ConvertUsernameForEeprom(InternalEepromDefaultUsername);
             for (var i = 0; i < data.Length; i++) InternalEeprom.Program(0x60 + i, data[i]); // Username (0x60-0x6F, max 16 characters)
             foreach (var (address, value) in InternalEepromDefaultData) InternalEeprom.Program(address, value);
+            AssignSwanIdIfUnset();
+        }
+
+        protected void AssignSwanIdIfUnset()
+        {
+            var contents = InternalEeprom.GetContents();
+            if (contents[0x7A] != 0 || contents[0x7B] != 0) return;
+
+            var swanId = Random.Shared.Next(1, 0x10000);
+            InternalEeprom.Program(0x7A, (byte)(swanId & 0xFF));
+            InternalEeprom.Program(0x7B, (byte)(swanId >> 8));
         }
 
         private static byte[] ConvertUsernameForEeprom(string name)
@@ -205,6 +221,13 @@ namespace StoicGoose.Core.Machines
             ChangeBit(ref interruptStatus, number, false);
         }
 
+        protected void PowerOff()
+        {
+            IsPoweredOff = true;
+            Cpu.IsHalted = true;
+            cancelFrameExecution = true;
+        }
+
         protected void HandleInterrupts()
         {
             if (!Cpu.IsFlagSet(V30MZ.Flags.InterruptEnable)) return;
@@ -229,6 +252,7 @@ namespace StoicGoose.Core.Machines
         public void LoadInternalEeprom(byte[] data)
         {
             InternalEeprom.LoadContents(data);
+            AssignSwanIdIfUnset();
         }
 
         public void LoadRom(byte[] data)

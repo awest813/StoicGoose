@@ -8,7 +8,7 @@
         {
             if (modRm.IsSet) return;
 
-            modRm.Set(ReadMemory8(cs, ip++));
+            modRm.Set(FetchByte());
             switch (modRm.Mod)
             {
                 case ModRM.Modes.NoDisplacement:
@@ -20,15 +20,14 @@
                         case 0b011: modRm.Segment = GetSegmentViaOverride(SegmentNumber.SS); modRm.Offset = (ushort)(bp + di); break;
                         case 0b100: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = si; break;
                         case 0b101: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = di; break;
-                        case 0b110: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = ReadMemory16(cs, ip); ip += 2; break;
+                        case 0b110: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = FetchWord(); break;
                         case 0b111: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = bx.Word; break;
                     }
                     break;
 
                 case ModRM.Modes.OneByteDisplacement:
                     {
-                        var displacement = (sbyte)ReadMemory8(cs, ip);
-                        ip++;
+                        var displacement = (sbyte)FetchByte();
                         switch (modRm.Mem)
                         {
                             case 0b000: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = (ushort)(bx.Word + si + displacement); break;
@@ -45,8 +44,7 @@
 
                 case ModRM.Modes.TwoByteDisplacement:
                     {
-                        var displacement = (short)ReadMemory16(cs, ip);
-                        ip += 2;
+                        var displacement = (short)FetchWord();
                         switch (modRm.Mem)
                         {
                             case 0b000: modRm.Segment = GetSegmentViaOverride(SegmentNumber.DS); modRm.Offset = (ushort)(bx.Word + si + displacement); break;
