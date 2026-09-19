@@ -530,8 +530,6 @@ namespace StoicGoose.Core.CPU
             return result;
         }
 
-        // TODO: cleanup Div8 & Div16
-
         private ushort Div8(bool signed, ushort a, byte b)
         {
             // PF, AF, SF = cleared, CF, OF = overflow from last multiplication

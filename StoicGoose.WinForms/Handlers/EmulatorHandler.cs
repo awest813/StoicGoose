@@ -116,6 +116,9 @@ namespace StoicGoose.WinForms.Handlers
                         lastTime = stopWatch.Elapsed.TotalMilliseconds;
 
                     Machine.RunFrame();
+
+                    if (Machine.IsPoweredOff)
+                        threadPaused = true;
                 }
                 else
                     lastTime = stopWatch.Elapsed.TotalMilliseconds;

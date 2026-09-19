@@ -171,6 +171,12 @@ namespace StoicGoose.GLWindow
                     machine.RunFrame();
                     soundHandler.Update();
 
+                    if (machine.IsPoweredOff)
+                    {
+                        isRunning = false;
+                        statusMessageItem.Label = "System powered off.";
+                    }
+
                     framesPerSecond = 1.0 / frameTimeElapsed;
                 }
                 else if (!isRunning)
@@ -315,20 +321,7 @@ namespace StoicGoose.GLWindow
 
         private void ApplyMachinePatchHandlers(bool enabled)
         {
-            if (enabled)
-            {
-                machine.ReadMemoryCallback = MachineReadMemoryCallback;
-                machine.WriteMemoryCallback = MachineWriteMemoryCallback;
-                machine.ReadPortCallback = MachineReadPortCallback;
-                machine.WritePortCallback = MachineWritePortCallback;
-            }
-            else
-            {
-                machine.ReadMemoryCallback = default;
-                machine.WriteMemoryCallback = default;
-                machine.ReadPortCallback = default;
-                machine.WritePortCallback = default;
-            }
+            machine.ReadMemoryCallback = enabled ? MachineReadMemoryCallback : default;
         }
 
         private void ApplyMachineBreakpointHandlers(bool enabled)
@@ -388,22 +381,6 @@ namespace StoicGoose.GLWindow
             }
 
             return value;
-        }
-
-        private void MachineWriteMemoryCallback(uint address, byte value)
-        {
-            // TODO? -- remove callback?
-        }
-
-        private byte MachineReadPortCallback(ushort port, byte value)
-        {
-            // TODO? -- remove callback?
-            return value;
-        }
-
-        private void MachineWritePortCallback(ushort port, byte value)
-        {
-            // TODO? -- remove callback?
         }
 
         private bool MachineRunStepCallback()
