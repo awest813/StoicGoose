@@ -1,4 +1,5 @@
 ﻿using ImGuiNET;
+using StoicGoose.Common.Localization;
 using StoicGoose.ImGuiCommon.Windows;
 using System;
 using System.Collections.Generic;
@@ -43,7 +44,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         {
                             ImGui.Dummy(new NumericsVector2(0f, labelPadding));
                             ImGui.Dummy(new NumericsVector2(labelPadding, 0f)); ImGui.SameLine();
-                            ImGui.Text($"Please press the new key for '{input}'."); ImGui.SameLine();
+                            ImGui.Text(Localizer.GetString("InputSettings.PressKey", new { Input = input })); ImGui.SameLine();
                             ImGui.Dummy(new NumericsVector2(labelPadding, 0f));
                             ImGui.Dummy(new NumericsVector2(0f, labelPadding));
 
@@ -51,17 +52,26 @@ namespace StoicGoose.GLWindow.Interface.Windows
                             ImGui.Separator();
                             ImGui.Dummy(new NumericsVector2(0f, 2f));
 
-                            if (ImGui.Button("Cancel", new NumericsVector2(ImGui.GetContentRegionAvail().X, 0f)))
+                            if (ImGui.Button(Localizer.GetString("InputSettings.Cancel"), new NumericsVector2(ImGui.GetContentRegionAvail().X, 0f)) ||
+                                ImGui.IsKeyPressed(ImGuiKey.Escape) || !popupDummy)
+                            {
                                 ImGui.CloseCurrentPopup();
-                            else
+                            }
+                            else if (!ImGui.IsWindowAppearing())
                             {
                                 var io = ImGui.GetIO();
                                 for (var i = 0; i < io.KeysData.Count; i++)
                                 {
+                                    var mapped = (OTKKeys)io.KeyMap[i];
+                                    if (mapped is OTKKeys.Unknown or OTKKeys.Escape or OTKKeys.LeftControl or OTKKeys.RightControl
+                                        or OTKKeys.LeftAlt or OTKKeys.RightAlt or OTKKeys.LeftShift or OTKKeys.RightShift
+                                        or OTKKeys.LeftSuper or OTKKeys.RightSuper)
+                                        continue;
+
                                     var keyData = io.KeysData[i];
-                                    if (keyData.Down != 0 && ((OTKKeys)io.KeyMap[i]) != OTKKeys.Unknown)
+                                    if (keyData.Down != 0)
                                     {
-                                        controlChanges.Add(input, ((OTKKeys)io.KeyMap[i]).ToString());
+                                        controlChanges[input] = mapped.ToString();
                                         ImGui.CloseCurrentPopup();
                                         break;
                                     }
@@ -79,9 +89,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 var style = ImGui.GetStyle();
 
-                ImGui.SeparatorText("Game");
+                ImGui.SeparatorText(Localizer.GetString("InputSettings.Game"));
                 drawControls(gameControls, ref gameControlChanges);
-                ImGui.SeparatorText("System");
+                ImGui.SeparatorText(Localizer.GetString("InputSettings.System"));
                 drawControls(systemControls, ref systemControlChanges);
 
                 foreach (var (input, newKey) in gameControlChanges) gameControls[input] = newKey;
@@ -95,7 +105,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 if (ImGui.BeginChild("##controls-frame", NumericsVector2.Zero))
                 {
-                    if (ImGui.Button($"Close##close", new NumericsVector2(ImGui.GetContentRegionAvail().X, 0f)))
+                    if (ImGui.Button($"{Localizer.GetString("InputSettings.Close")}##close", new NumericsVector2(ImGui.GetContentRegionAvail().X, 0f)))
                         isWindowOpen = false;
 
                     ImGui.EndChild();

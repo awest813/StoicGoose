@@ -79,9 +79,10 @@ namespace StoicGoose.GLWindow
             inputHandler = new();
 
             imGuiHandler = new(this, Program.RequiredGLVersion);
+            imGuiHandler.SetIniFilename(Path.Combine(Program.InternalDataPath, "imgui.ini"));
             imGuiHandler.AddFontFromEmbeddedResource("Assets.JF-Dot-K14-2004.ttf", 14.0f, ImGuiHandler.GlyphRanges.Japanese);
             imGuiHandler.RegisterWindow(logWindow, () => null);
-            imGuiHandler.RegisterWindow(displayWindow, () => (displayTexture, isVerticalOrientation));
+            imGuiHandler.RegisterWindow(displayWindow, () => (displayTexture, isVerticalOrientation, isRunning));
             imGuiHandler.RegisterWindow(disassemblerWindow, () => (machine, isRunning, isPaused));
             imGuiHandler.RegisterWindow(breakpointWindow, () => (breakpoints, isRunning));
             imGuiHandler.RegisterWindow(memoryEditorWindow, () => (machine, isRunning));
@@ -129,8 +130,7 @@ namespace StoicGoose.GLWindow
 
             Program.SaveConfiguration();
 
-            /* Ensure imgui.ini gets written */
-            ImGuiNET.ImGui.SaveIniSettingsToDisk(ImGuiNET.ImGui.GetIO().IniFilename.ToString());
+            imGuiHandler.SaveIniSettings();
 
             soundHandler.Dispose();
 
@@ -159,13 +159,28 @@ namespace StoicGoose.GLWindow
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             var keyState = KeyboardState.GetSnapshot();
-            if (keyState.IsKeyPressed(Keys.Escape) &&
-                !fileDialogHandler.IsAnyDialogOpen &&
-                !messageBoxHandler.IsAnyMessageBoxOpen)
+            var imguiBusy = fileDialogHandler.IsAnyDialogOpen || messageBoxHandler.IsAnyMessageBoxOpen;
+            var typing = ImGuiNET.ImGui.GetCurrentContext() != IntPtr.Zero && ImGuiNET.ImGui.GetIO().WantTextInput;
+
+            if (keyState.IsKeyPressed(Keys.Escape) && !imguiBusy)
             {
                 var focusedToolWindow = imGuiHandler.OpenWindows.FirstOrDefault(window => window.IsFocused && window is not DisplayWindow);
                 if (focusedToolWindow != null)
                     focusedToolWindow.IsWindowOpen = false;
+            }
+
+            var ctrl = keyState.IsKeyDown(Keys.LeftControl) || keyState.IsKeyDown(Keys.RightControl);
+            if (ctrl && !imguiBusy && !typing)
+            {
+                if (keyState.IsKeyPressed(Keys.O))
+                    openRomDialog.IsOpen = true;
+                else if (keyState.IsKeyPressed(Keys.P) && isRunning)
+                    isPaused = !isPaused;
+                else if (keyState.IsKeyPressed(Keys.R) && isRunning)
+                {
+                    SaveVolatileData();
+                    machine?.Reset();
+                }
             }
 
             frameTimeElapsed += args.Time;
@@ -197,7 +212,7 @@ namespace StoicGoose.GLWindow
             statusRunningItem.Label = isPaused ? Localizer.GetString("MainWindow.StatusRunningPaused") : (isRunning ? Localizer.GetString("MainWindow.StatusRunningRunning") : Localizer.GetString("MainWindow.StatusRunningStopped"));
             statusRunningItem.IsEnabled = isRunning && !isPaused;
 
-            statusFpsItem.Label = $"{framesPerSecond:0} fps";
+            statusFpsItem.Label = isRunning ? $"{framesPerSecond:0} fps" : "—";
             statusFpsItem.IsEnabled = isRunning && !isPaused;
 
             base.OnUpdateFrame(args);

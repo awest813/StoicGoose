@@ -96,7 +96,8 @@ namespace StoicGoose.GLWindow
                             openRomDialog.InitialFilename = Path.GetFileName(Program.Configuration.LastRomLoaded);
                         }
                         openRomDialog.IsOpen = true;
-                    }),
+                    })
+                    { Shortcut = "Ctrl+O" },
                     new("-"),
                     new(localization: "MainWindow.Menus.Exit", clickAction: (_) => { Close(); })
                 ]
@@ -108,10 +109,12 @@ namespace StoicGoose.GLWindow
                 [
                     new(localization: "MainWindow.Menus.Pause",
                     clickAction: (_) => { isPaused = !isPaused; },
-                    updateAction: (s) => { s.IsEnabled = isRunning; s.IsChecked = isPaused; }),
+                    updateAction: (s) => { s.IsEnabled = isRunning; s.IsChecked = isPaused; })
+                    { Shortcut = "Ctrl+P" },
                     new(localization: "MainWindow.Menus.Reset",
                     clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Reset(); } },
-                    updateAction: (s) => { s.IsEnabled = isRunning; }),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "Ctrl+R" },
                     new("-"),
                     new(localization: "MainWindow.Menus.Shutdown",
                     clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageShutdown"); isRunning = false; } },
@@ -262,7 +265,7 @@ namespace StoicGoose.GLWindow
             {
                 Callback = (res, fn) =>
                 {
-                    if (res == ImGuiFileDialogResult.Okay)
+                    if (res == ImGuiFileDialogResult.Okay && !string.IsNullOrEmpty(fn))
                         LoadAndRunCartridge(fn);
                 }
             };

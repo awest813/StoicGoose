@@ -8,8 +8,18 @@ namespace StoicGoose.ImGuiCommon.Windows
     {
         protected bool isWindowOpen = false;
         protected bool isFirstOpen = true;
+        bool bringToFront;
 
-        public bool IsWindowOpen { get => isWindowOpen; set => isWindowOpen = value; }
+        public bool IsWindowOpen
+        {
+            get => isWindowOpen;
+            set
+            {
+                if (value && !isWindowOpen)
+                    bringToFront = true;
+                isWindowOpen = value;
+            }
+        }
 
         public string WindowTitle { get; } = string.Empty;
         public NumericsVector2 InitialWindowSize { get; } = NumericsVector2.Zero;
@@ -41,6 +51,12 @@ namespace StoicGoose.ImGuiCommon.Windows
             {
                 InitializeWindow(userData);
                 isFirstOpen = false;
+            }
+
+            if (bringToFront)
+            {
+                ImGui.SetNextWindowFocus();
+                bringToFront = false;
             }
 
             ImGui.SetNextWindowSize(InitialWindowSize, SizingCondition);

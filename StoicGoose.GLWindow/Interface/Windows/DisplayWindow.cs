@@ -1,4 +1,5 @@
 ﻿using ImGuiNET;
+using StoicGoose.Common.Localization;
 using StoicGoose.Common.OpenGL;
 using StoicGoose.ImGuiCommon.Windows;
 using System;
@@ -20,7 +21,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
         protected override void DrawWindow(object userData)
         {
-            if (userData is not (Texture texture, bool vertical)) return;
+            if (userData is not (Texture texture, bool vertical, bool isRunning)) return;
 
             var textureSize = new NumericsVector2(
                 !vertical ? texture.Size.X : texture.Size.Y,
@@ -69,6 +70,14 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     new IntPtr(texture.Handle),
                     pos[0], pos[1], pos[2], pos[3],
                     uvs[0], uvs[1], uvs[2], uvs[3]);
+
+                if (!isRunning)
+                {
+                    var hint = Localizer.GetString("DisplayWindow.NoRom");
+                    var hintSize = ImGui.CalcTextSize(hint);
+                    var hintPos = screenPos + ((textureSize - hintSize) * 0.5f) + childBorderSize;
+                    drawList.AddText(hintPos, ImGui.GetColorU32(ImGuiCol.Text), hint);
+                }
 
                 if (ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows) && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
                     ImGui.OpenPopup("context");

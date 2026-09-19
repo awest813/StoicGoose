@@ -12,6 +12,7 @@ using StoicGoose.Common.Utilities;
 using StoicGoose.ImGuiCommon.Windows;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Buffer = StoicGoose.Common.OpenGL.Buffer;
@@ -74,6 +75,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
         Texture fontTexture = default;
 
         bool wasFrameBegun = false;
+        string iniSettingsPath = string.Empty;
 
         Vector2 lastMouseWheelOffset = default;
         readonly bool[] mouseDownLatch = new bool[3];
@@ -108,6 +110,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
             var io = ImGui.GetIO();
             io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
+            io.ConfigWindowsMoveFromTitleBarOnly = true;
 
             io.Fonts.AddFontDefault();
             UpdateFontTexture(io);
@@ -357,6 +360,29 @@ namespace StoicGoose.ImGuiCommon.Handlers
             windowList.RemoveAll(x => x.window is T);
 
             Log.WriteEvent(LogSeverity.Information, this, $"Deregistered all {typeof(T).Name}.");
+        }
+
+        public unsafe void SetIniFilename(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            iniSettingsPath = path;
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            var io = ImGui.GetIO();
+            io.NativePtr->IniFilename = (byte*)Marshal.StringToHGlobalAnsi(path);
+
+            if (File.Exists(path))
+                ImGui.LoadIniSettingsFromDisk(path);
+        }
+
+        public void SaveIniSettings()
+        {
+            if (!string.IsNullOrEmpty(iniSettingsPath))
+                ImGui.SaveIniSettingsToDisk(iniSettingsPath);
         }
 
         public void BeginFrame(float deltaTime)

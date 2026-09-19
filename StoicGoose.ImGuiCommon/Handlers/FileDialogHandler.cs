@@ -133,11 +133,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
                             if (workingDirectory.Parent != null)
                             {
                                 ImGui.PushStyleColor(ImGuiCol.Text, 0xFF00E0FF);
-                                if (ImGui.Selectable("[..]", isSelected, ImGuiSelectableFlags.AllowDoubleClick) &&
-                                    ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
-                                {
+                                if (ImGui.Selectable("[..]", isSelected))
                                     UpdateCurrentFilesAndDirs(workingDirectory.Parent);
-                                }
                                 ImGui.PopStyleColor();
                             }
                         }
@@ -184,8 +181,10 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     ImGui.Dummy(new NumericsVector2(0f, 2f));
 
                     var buttonWidth = (windowContentAvailWidth - ImGui.GetStyle().ItemSpacing.X) / 2f;
+                    var canOpen = !string.IsNullOrEmpty(selectedFilePath);
 
-                    if (ImGui.Button(OpenButtonLabel, new NumericsVector2(buttonWidth, 0f)) || readyToOpen)
+                    ImGui.BeginDisabled(!canOpen);
+                    if ((ImGui.Button(OpenButtonLabel ?? "Open", new NumericsVector2(buttonWidth, 0f)) || readyToOpen) && canOpen)
                     {
                         ImGui.CloseCurrentPopup();
 
@@ -194,15 +193,12 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
                         ResetHandlerState();
                     }
+                    ImGui.EndDisabled();
                     ImGui.SameLine();
-                    if (ImGui.Button(CancelButtonLabel, new NumericsVector2(buttonWidth, 0f)))
+                    if (ImGui.Button(CancelButtonLabel ?? "Cancel", new NumericsVector2(buttonWidth, 0f)) ||
+                        ImGui.IsKeyPressed(ImGuiKey.Escape))
                     {
-                        ImGui.CloseCurrentPopup();
-
-                        fileDialogs[i].Callback?.Invoke(ImGuiFileDialogResult.Cancel, string.Empty);
-                        fileDialogs[i].IsOpen = false;
-
-                        ResetHandlerState();
+                        DismissDialog(fileDialogs[i], ImGuiFileDialogResult.Cancel);
                     }
 
                     ImGui.PopStyleVar();
@@ -210,6 +206,10 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     ImGui.EndPopup();
 
                     fileDialogs[i].IsFirstOpen = false;
+                }
+                else if (!fileDialogs[i].IsOpen)
+                {
+                    DismissDialog(fileDialogs[i], ImGuiFileDialogResult.Cancel);
                 }
             }
         }
@@ -237,6 +237,17 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
             selectedFileDir = -1;
             selectedFilePath = string.Empty;
+        }
+
+        private void DismissDialog(FileDialog dialog, ImGuiFileDialogResult result)
+        {
+            if (!dialog.IsOpen && result == ImGuiFileDialogResult.Cancel && workingDirectory == default)
+                return;
+
+            ImGui.CloseCurrentPopup();
+            dialog.Callback?.Invoke(result, result == ImGuiFileDialogResult.Okay ? selectedFilePath : string.Empty);
+            dialog.IsOpen = false;
+            ResetHandlerState();
         }
 
         private void ResetHandlerState()

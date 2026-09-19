@@ -7,7 +7,7 @@
         "MainWindow": {
             "Menus": {
                 "File": "File",
-                "Open": "Open",
+                "Open": "Open...",
                 "Exit": "Exit",
                 "Emulation": "Emulation",
                 "Pause": "Pause",
@@ -63,6 +63,16 @@
             "BreakpointHitMessage": "Breakpoint with condition ({Expression}) was hit.\n\nThe disassembler window has been opened.",
             "OkayButton": "OK",
         },
+        "DisplayWindow": {
+            "NoRom": "Open a ROM from File → Open..."
+        },
+        "InputSettings": {
+            "Game": "Game",
+            "System": "System",
+            "PressKey": "Press the new key for '{Input}'.",
+            "Cancel": "Cancel",
+            "Close": "Close"
+        },
         "FileDialogHandler": {
             "OpenButton": "Open",
             "CancelButton": "Cancel",
@@ -76,7 +86,7 @@
         "MainWindow": {
             "Menus": {
                 "File": "Datei",
-                "Open": "Öffnen",
+                "Open": "Öffnen...",
                 "Exit": "Beenden",
                 "Emulation": "Emulation",
                 "Pause": "Pause",
@@ -131,6 +141,16 @@
             "BreakpointHitTitle": "Breakpoint erreicht",
             "BreakpointHitMessage": "Breakpoint mit der Bedingung ({Expression}) wurde erreicht.\n\nDas Disassembler-Fenster wurde geöffnet.",
             "OkayButton": "OK",
+        },
+        "DisplayWindow": {
+            "NoRom": "ROM über Datei → Öffnen... laden"
+        },
+        "InputSettings": {
+            "Game": "Spiel",
+            "System": "System",
+            "PressKey": "Neue Taste für '{Input}' drücken.",
+            "Cancel": "Abbrechen",
+            "Close": "Schließen"
         },
         "FileDialogHandler": {
             "OpenButton": "Öffnen",
