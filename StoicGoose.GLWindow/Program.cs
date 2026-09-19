@@ -29,11 +29,11 @@ namespace StoicGoose.GLWindow
 
         readonly static FileVersionInfo assemblyVersionInfo = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
 
-        public static string ProductName => assemblyVersionInfo.ProductName;
+        public static string ProductName => string.IsNullOrWhiteSpace(assemblyVersionInfo.ProductName) ? "StoicGoose" : assemblyVersionInfo.ProductName;
 
-        readonly static string mutexName = $"{assemblyVersionInfo.ProductName}_{GetVersionDetails()}";
+        readonly static string mutexName = $"{ProductName}_{GetVersionDetails()}";
 
-        readonly static string programDataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), assemblyVersionInfo.ProductName);
+        readonly static string programDataDirectory = ApplicationPaths.GetDataDirectory(ProductName);
         readonly static string programConfigPath = Path.Combine(programDataDirectory, jsonConfigFileName);
 
         public static Configuration Configuration { get; private set; } = LoadConfiguration(programConfigPath);

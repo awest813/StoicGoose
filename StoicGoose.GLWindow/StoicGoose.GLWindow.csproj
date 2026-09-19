@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Product>StoicGoose</Product>
     <Version>3.0.0</Version>
     <Company>xdaniel</Company>
     <Authors />
