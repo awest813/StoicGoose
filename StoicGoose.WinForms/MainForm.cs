@@ -284,6 +284,12 @@ namespace StoicGoose.WinForms
 
                 if (emulatorHandler.Machine is MachineCommon machine)
                 {
+                    if (machine.IsPoweredOff)
+                    {
+                        tsslStatus.Text = "System powered off.";
+                        tsslEmulationStatus.Text = "Stopped";
+                    }
+
                     var activeIcons = new List<string>() { "Power" };
 
                     if (machine.BuiltInSelfTestOk) activeIcons.Add("Initialized");
@@ -381,7 +387,10 @@ namespace StoicGoose.WinForms
                 statusStringBuilder.Append($"playing {databaseHandler.GetGameTitle(emulatorHandler.Machine.Cartridge.Crc32, emulatorHandler.Machine.Cartridge.SizeInBytes)} ({emulatorHandler.Machine.Cartridge.Metadata.GameIdString})");
 
                 tsslStatus.Text = statusStringBuilder.ToString();
-                tsslEmulationStatus.Text = emulatorHandler.IsRunning ? (emulatorHandler.IsPaused ? "Paused" : "Running") : "Stopped";
+                if (emulatorHandler.Machine.IsPoweredOff)
+                    tsslEmulationStatus.Text = "Stopped";
+                else
+                    tsslEmulationStatus.Text = emulatorHandler.IsRunning ? (emulatorHandler.IsPaused ? "Paused" : "Running") : "Stopped";
             }
             else
             {

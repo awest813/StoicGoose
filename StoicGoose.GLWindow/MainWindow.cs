@@ -157,7 +157,14 @@ namespace StoicGoose.GLWindow
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             var keyState = KeyboardState.GetSnapshot();
-            if (keyState.IsKeyDown(Keys.Escape)) Close();
+            if (keyState.IsKeyPressed(Keys.Escape) &&
+                !fileDialogHandler.IsAnyDialogOpen &&
+                !messageBoxHandler.IsAnyMessageBoxOpen)
+            {
+                var focusedToolWindow = imGuiHandler.OpenWindows.FirstOrDefault(window => window.IsFocused && window is not DisplayWindow);
+                if (focusedToolWindow != null)
+                    focusedToolWindow.IsWindowOpen = false;
+            }
 
             frameTimeElapsed += args.Time;
 
@@ -174,7 +181,7 @@ namespace StoicGoose.GLWindow
                     if (machine.IsPoweredOff)
                     {
                         isRunning = false;
-                        statusMessageItem.Label = "System powered off.";
+                        statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessagePoweredOff");
                     }
 
                     framesPerSecond = 1.0 / frameTimeElapsed;
@@ -403,7 +410,7 @@ namespace StoicGoose.GLWindow
                 {
                     Log.WriteEvent(LogSeverity.Information, this, $"Breakpoint hit: ({bp.Expression})");
 
-                    breakpointHitMessageBox.Message = $"Breakpoint with condition ({bp.Expression}) was hit.\n\nDisassembler window has been opened.";
+                    breakpointHitMessageBox.Message = Localizer.GetString("MainWindow.BreakpointHitMessage", new { bp.Expression });
                     breakpointHitMessageBox.IsOpen = true;
 
                     isPaused = true;

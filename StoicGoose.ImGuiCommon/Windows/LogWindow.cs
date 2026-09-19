@@ -228,7 +228,7 @@ namespace StoicGoose.ImGuiCommon.Windows
                 if (clear) messageList.Clear();
                 if (copy) ImGui.LogToClipboard();
 
-                ImGui.End();
+                EndWindow();
             }
         }
 

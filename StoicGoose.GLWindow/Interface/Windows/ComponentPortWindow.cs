@@ -85,7 +85,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     }
                 }
 
-                ImGui.End();
+                EndWindow();
             }
         }
     }

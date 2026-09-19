@@ -77,11 +77,11 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 if (ImGui.BeginPopup("context"))
                 {
-                    ImGui.SliderInt("##size", ref windowScale, 1, 5, "%dx");
+                    ImGui.SliderInt("Scale", ref windowScale, 1, 5, "%dx");
                     ImGui.EndPopup();
                 }
 
-                ImGui.End();
+                EndWindow();
             }
             else
                 ImGui.PopStyleVar();

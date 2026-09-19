@@ -9,7 +9,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 {
     public class InputSettingsWindow : WindowBase
     {
-        public InputSettingsWindow() : base("Input Settings", new(300f, 420f), ImGuiCond.Always) { }
+        public InputSettingsWindow() : base("Input Settings", new(320f, 520f), ImGuiCond.Always) { }
 
         protected override void DrawWindow(object userData)
         {
@@ -23,11 +23,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
                 foreach (var (input, key) in controls)
                 {
                     var popupId = $"Change Key##key-change-{input}";
-
-                    var style = ImGui.GetStyle();
                     var cursorPos = ImGui.GetCursorPos();
 
-                    ImGui.SetCursorPos(new(cursorPos.X, cursorPos.Y + style.FramePadding.Y));
+                    ImGui.AlignTextToFramePadding();
                     ImGui.Text($"{input}:");
 
                     ImGui.SetCursorPos(new(cursorPos.X + 100f, cursorPos.Y));
@@ -81,7 +79,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 var style = ImGui.GetStyle();
 
+                ImGui.SeparatorText("Game");
                 drawControls(gameControls, ref gameControlChanges);
+                ImGui.SeparatorText("System");
                 drawControls(systemControls, ref systemControlChanges);
 
                 foreach (var (input, newKey) in gameControlChanges) gameControls[input] = newKey;
@@ -103,7 +103,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 ImGui.PopStyleVar();
 
-                ImGui.End();
+                EndWindow();
             }
         }
     }

@@ -8,8 +8,8 @@ namespace StoicGoose.GLWindow.Interface.Windows
 {
     public class MemoryPatchWindow : WindowBase
     {
-        readonly string[] patchConditionSymbols = ["^", "<", "<=", "=>", ">"];
-        readonly string[] patchConditionDescriptive = ["^ (always)", "< (less than)", "<= (less or equal)", "=> (greater or equal)", "> (greater than)"];
+        readonly string[] patchConditionSymbols = ["^", "<", "<=", ">=", ">"];
+        readonly string[] patchConditionDescriptive = ["^ (always)", "< (less than)", "<= (less or equal)", ">= (greater or equal)", "> (greater than)"];
         readonly string[] patchConditionNames = ["always", "less than", "less or equal", "greater or equal", "greater than"];
 
         MemoryPatch newPatchToAdd = default;
@@ -35,7 +35,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     if (ImGui.BeginTable("##list-table", 8, tableFlags))
                     {
                         ImGui.TableSetupScrollFreeze(0, 1);
-                        ImGui.TableSetupColumn(string.Empty, tableColumnFlags);
+                        ImGui.TableSetupColumn("On", tableColumnFlags);
                         ImGui.TableSetupColumn("Address", tableColumnFlags);
                         ImGui.TableSetupColumn("Condition", tableColumnFlags);
                         ImGui.TableSetupColumn("Compare", tableColumnFlags);
@@ -110,7 +110,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 ImGui.PopStyleVar();
 
-                ImGui.End();
+                EndWindow();
             }
 
             if (newPatchToAdd != null)

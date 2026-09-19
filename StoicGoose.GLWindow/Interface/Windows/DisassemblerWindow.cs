@@ -332,7 +332,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         ImGui.BeginDisabled();
                         ImGui.Button("Jump to IP", new(buttonWidth, 0f));
                         ImGui.SameLine();
-                        ImGui.Text("Code jump: ");
+                        ImGui.Text("Code jump:");
                         ImGui.SameLine();
                         ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags);
                         ImGui.EndDisabled();
@@ -341,7 +341,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     {
                         if (ImGui.Button("Jump to IP", new(buttonWidth, 0f))) jumpToIpNext = true;
                         ImGui.SameLine();
-                        ImGui.Text("Code jump: ");
+                        ImGui.Text("Code jump:");
                         ImGui.SameLine();
                         if (ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags) &&
                             int.TryParse(disasmAddrInputBuf, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsedDisasmAddr))
@@ -350,7 +350,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                     if (ImGui.Button("Reset", new(buttonWidth, 0f))) machine.Reset();
                     ImGui.SameLine();
-                    if (ImGui.Button("Reset -> Pause", new(buttonWidth, 0f))) { OnPauseEmulation(EventArgs.Empty); machine.Reset(); }
+                    if (ImGui.Button("Reset & Pause", new(buttonWidth, 0f))) { OnPauseEmulation(EventArgs.Empty); machine.Reset(); }
                     ImGui.SameLine();
                     if (traceExecution)
                     {
@@ -479,7 +479,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     ImGui.EndChild();
                 }
 
-                ImGui.End();
+                EndWindow();
             }
         }
 

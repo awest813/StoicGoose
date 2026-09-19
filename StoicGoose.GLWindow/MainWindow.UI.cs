@@ -114,7 +114,7 @@ namespace StoicGoose.GLWindow
                     updateAction: (s) => { s.IsEnabled = isRunning; }),
                     new("-"),
                     new(localization: "MainWindow.Menus.Shutdown",
-                    clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = "Machine shutdown."; isRunning = false; } },
+                    clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageShutdown"); isRunning = false; } },
                     updateAction: (s) => { s.IsEnabled = isRunning; })
                 ]
             };
@@ -174,7 +174,7 @@ namespace StoicGoose.GLWindow
                     {
                         SubItems = [.. Localizer.GetSupportedLanguages().Select(x =>
                             new MenuItem(label: x.NativeName,
-                            clickAction: (_) => { Thread.CurrentThread.CurrentUICulture = new(Program.Configuration.Language = x.TwoLetterISOLanguageName); LocalizeUI(); },
+                            clickAction: (_) => { Thread.CurrentThread.CurrentUICulture = new(Program.Configuration.Language = x.TwoLetterISOLanguageName); LocalizeUI(true); },
                             updateAction: (s) => { s.IsChecked = Program.Configuration.Language == x.TwoLetterISOLanguageName; })
                         )]
                     },
@@ -250,13 +250,13 @@ namespace StoicGoose.GLWindow
                 "\r\n" +
                 $"{Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright}\r\n" +
                 $"{ThisAssembly.Git.RepositoryUrl}",
-                "Okay");
+                "OK");
 
-            breakpointHitMessageBox = new("Breakpoint Hit", string.Empty, "Okay");
+            breakpointHitMessageBox = new("Breakpoint Hit", string.Empty, "OK");
 
             statusMessageItem = new() { ShowSeparator = false };
             statusRunningItem = new() { Width = 100f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
-            statusFpsItem = new() { Width = 75f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
+            statusFpsItem = new() { Width = 90f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
 
             openRomDialog = new(ImGuiFileDialogType.Open)
             {
@@ -286,7 +286,7 @@ namespace StoicGoose.GLWindow
             Log.WriteEvent(LogSeverity.Information, this, "User interface initialized.");
         }
 
-        private void LocalizeUI()
+        private void LocalizeUI(bool announceLanguageChange = false)
         {
             static void localizeMenus(params MenuItem[] menuItems)
             {
@@ -299,7 +299,13 @@ namespace StoicGoose.GLWindow
 
             localizeMenus(fileMenu, emulationMenu, windowsMenu, optionsMenu, helpMenu);
 
-            statusMessageItem.Label = Localizer.GetString("MainWindow.LanguageChanged", new { Language = Thread.CurrentThread.CurrentUICulture.NativeName });
+            if (announceLanguageChange)
+                statusMessageItem.Label = Localizer.GetString("MainWindow.LanguageChanged", new { Language = Thread.CurrentThread.CurrentUICulture.NativeName });
+
+            aboutMessageBox.Title = Localizer.GetString("MainWindow.AboutTitle");
+            aboutMessageBox.Buttons = [Localizer.GetString("MainWindow.OkayButton")];
+            breakpointHitMessageBox.Title = Localizer.GetString("MainWindow.BreakpointHitTitle");
+            breakpointHitMessageBox.Buttons = [Localizer.GetString("MainWindow.OkayButton")];
 
             openRomDialog.Title = Localizer.GetString("MainWindow.Dialogs.OpenROMTitle");
             openRomDialog.Filter = Localizer.GetString("MainWindow.Dialogs.ROMFilter");

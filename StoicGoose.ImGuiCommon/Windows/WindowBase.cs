@@ -15,7 +15,7 @@ namespace StoicGoose.ImGuiCommon.Windows
         public NumericsVector2 InitialWindowSize { get; } = NumericsVector2.Zero;
         public ImGuiCond SizingCondition { get; } = ImGuiCond.None;
 
-        public bool IsFocused { get; private set; } = default;
+        public bool IsFocused { get; protected set; } = default;
 
         public WindowBase(string title)
         {
@@ -31,7 +31,11 @@ namespace StoicGoose.ImGuiCommon.Windows
 
         public virtual void Draw(object userData)
         {
-            if (!isWindowOpen) return;
+            if (!isWindowOpen)
+            {
+                IsFocused = false;
+                return;
+            }
 
             if (isFirstOpen)
             {
@@ -42,12 +46,12 @@ namespace StoicGoose.ImGuiCommon.Windows
             ImGui.SetNextWindowSize(InitialWindowSize, SizingCondition);
 
             DrawWindow(userData);
+        }
 
-            if (ImGui.Begin(WindowTitle))
-            {
-                IsFocused = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
-                ImGui.End();
-            }
+        protected void EndWindow()
+        {
+            IsFocused = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
+            ImGui.End();
         }
 
         protected virtual void InitializeWindow(object userData) { }
