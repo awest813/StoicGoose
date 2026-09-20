@@ -1,6 +1,7 @@
 ﻿using StoicGoose.Common.Attributes;
 using StoicGoose.Core.Interfaces;
 using System;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Serial
@@ -28,6 +29,30 @@ namespace StoicGoose.Core.Serial
         {
             serialData = 0;
             enable = baudRateSelect = rxOverrun = rxFull = false;
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(baudClock);
+            writer.Write(txBitClock);
+            writer.Write(serialData);
+            writer.Write(enable);
+            writer.Write(baudRateSelect);
+            writer.Write(txEmpty);
+            writer.Write(rxOverrun);
+            writer.Write(rxFull);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            baudClock = reader.ReadInt32();
+            txBitClock = reader.ReadInt32();
+            serialData = reader.ReadByte();
+            enable = reader.ReadBoolean();
+            baudRateSelect = reader.ReadBoolean();
+            txEmpty = reader.ReadBoolean();
+            rxOverrun = reader.ReadBoolean();
+            rxFull = reader.ReadBoolean();
         }
 
         public void Shutdown()

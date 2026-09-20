@@ -43,6 +43,40 @@
             PcmRightFull = PcmRightHalf = PcmLeftFull = PcmLeftHalf = false;
         }
 
+        public void ExportState(System.IO.BinaryWriter writer)
+        {
+            writer.Write(counter);
+            writer.Write(pointer);
+            writer.Write(OutputLeft);
+            writer.Write(OutputRight);
+            writer.Write(Pitch);
+            writer.Write(VolumeLeft);
+            writer.Write(VolumeRight);
+            writer.Write(IsEnabled);
+            writer.Write(IsVoiceEnabled);
+            writer.Write(PcmRightFull);
+            writer.Write(PcmRightHalf);
+            writer.Write(PcmLeftFull);
+            writer.Write(PcmLeftHalf);
+        }
+
+        public void ImportState(System.IO.BinaryReader reader)
+        {
+            counter = reader.ReadUInt16();
+            pointer = reader.ReadByte();
+            OutputLeft = reader.ReadByte();
+            OutputRight = reader.ReadByte();
+            Pitch = reader.ReadUInt16();
+            VolumeLeft = reader.ReadByte();
+            VolumeRight = reader.ReadByte();
+            IsEnabled = reader.ReadBoolean();
+            IsVoiceEnabled = reader.ReadBoolean();
+            PcmRightFull = reader.ReadBoolean();
+            PcmRightHalf = reader.ReadBoolean();
+            PcmLeftFull = reader.ReadBoolean();
+            PcmLeftHalf = reader.ReadBoolean();
+        }
+
         public void Step()
         {
             if (IsVoiceEnabled)

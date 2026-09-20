@@ -1,17 +1,17 @@
 ﻿using StoicGoose.Common.Utilities;
 using StoicGoose.Core.Interfaces;
 using StoicGoose.Core.Machines;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Cartridges
 {
     /* Seiko S-3511A real-time clock, through Bandai 2003 mapper
-	 * - https://forums.nesdev.org/viewtopic.php?t=21513
-	 * - https://datasheetspdf.com/pdf-file/1087347/Seiko/S-3511A/1
-	 */
-
-    // TODO: interrupts, save/load current state
+     * - https://forums.nesdev.org/viewtopic.php?t=21513
+     * - https://datasheetspdf.com/pdf-file/1087347/Seiko/S-3511A/1
+     */
 
     public sealed class RTC : IPortAccessComponent
     {
@@ -27,6 +27,7 @@ namespace StoicGoose.Core.Cartridges
         /* WS+RTC - Communication */
         byte command;
         bool isReadAccess;
+        bool ackPending;
 
         /* RTC - Real-time data register */
         byte year, month, day, dayOfWeek, hour, minute, second;
@@ -40,30 +41,33 @@ namespace StoicGoose.Core.Cartridges
         ushort intRegister;
 
         (bool pm, byte hour, byte minute) AlarmTime => (IsBitSet((byte)(intRegister >> 0), 7), (byte)((intRegister >> 0) & 0b00111111), (byte)((intRegister >> 8) & 0b01111111));
+
         int SelectedInterruptFreq
         {
             get
             {
-                var freq = 0;
-                for (var j = 0; j < 16; j++) if (((intRegister >> j) & 0b1) == 0b1) freq |= 32768 >> j;
-                return freq;
+                for (var j = 0; j < 16; j++)
+                    if (((intRegister >> j) & 0b1) == 0b1)
+                        return 32768 >> j;
+
+                return 1;
             }
         }
 
         int cycleCount;
+        int freqCycleCount;
+        bool minuteEdgePending;
 
         public RTC()
         {
             //
         }
 
+        public const int StateSize = 11;
+
         public void Reset()
         {
-            wsData = 0;
-            payloadIndex = 0;
-
-            command = 0;
-            isReadAccess = false;
+            ResetCommunication();
 
             year = dayOfWeek = hour = minute = second = 0;
             month = day = 1;
@@ -73,8 +77,91 @@ namespace StoicGoose.Core.Cartridges
             isPowered = intFE = true;
 
             intRegister = 0x8000;
+        }
+
+        public void ResetCommunication()
+        {
+            wsData = 0;
+            payloadIndex = 0;
+
+            command = 0;
+            isReadAccess = false;
+            ackPending = false;
 
             cycleCount = 0;
+            freqCycleCount = 0;
+            minuteEdgePending = false;
+        }
+
+        public byte[] ExportState()
+        {
+            byte flags = 0;
+            ChangeBit(ref flags, 0, isPm);
+            ChangeBit(ref flags, 1, isTestModeActive);
+            ChangeBit(ref flags, 2, isPowered);
+            ChangeBit(ref flags, 3, is24HourMode);
+            ChangeBit(ref flags, 4, intAE);
+            ChangeBit(ref flags, 5, intME);
+            ChangeBit(ref flags, 6, intFE);
+
+            return
+            [
+                1,
+                year, month, day, dayOfWeek, hour, minute, second,
+                flags,
+                (byte)(intRegister & 0xFF),
+                (byte)(intRegister >> 8),
+            ];
+        }
+
+        public void ImportState(byte[] data)
+        {
+            if (data == null || data.Length < StateSize || data[0] != 1)
+                return;
+
+            year = data[1];
+            month = data[2];
+            day = data[3];
+            dayOfWeek = data[4];
+            hour = data[5];
+            minute = data[6];
+            second = data[7];
+
+            isPm = IsBitSet(data[8], 0);
+            isTestModeActive = IsBitSet(data[8], 1);
+            isPowered = IsBitSet(data[8], 2);
+            is24HourMode = IsBitSet(data[8], 3);
+            intAE = IsBitSet(data[8], 4);
+            intME = IsBitSet(data[8], 5);
+            intFE = IsBitSet(data[8], 6);
+
+            intRegister = (ushort)(data[9] | (data[10] << 8));
+        }
+
+        public void ExportRuntimeState(BinaryWriter writer)
+        {
+            SaveStateIO.WriteBytes(writer, ExportState());
+            writer.Write(wsData);
+            writer.Write(payloadIndex);
+            writer.Write(command);
+            writer.Write(isReadAccess);
+            writer.Write(ackPending);
+            writer.Write(cycleCount);
+            writer.Write(freqCycleCount);
+            writer.Write(minuteEdgePending);
+        }
+
+        public void ImportRuntimeState(BinaryReader reader)
+        {
+            ImportState(SaveStateIO.ReadBytes(reader));
+            wsData = reader.ReadByte();
+            payloadIndex = reader.ReadByte();
+            command = reader.ReadByte();
+            isReadAccess = reader.ReadBoolean();
+            ackPending = reader.ReadBoolean();
+            cycleCount = reader.ReadInt32();
+            freqCycleCount = reader.ReadInt32();
+            minuteEdgePending = reader.ReadBoolean();
         }
 
         public void Shutdown()
@@ -102,21 +189,27 @@ namespace StoicGoose.Core.Cartridges
                 if (intFE && !intME)
                 {
                     /* Selected frequency steady interrupt output */
-
-                    // TODO probably not right
-                    if (cycleCount >= SelectedInterruptFreq)
+                    var period = Math.Max(1, cyclesInSecond / Math.Max(1, SelectedInterruptFreq));
+                    freqCycleCount++;
+                    if (freqCycleCount >= period)
+                    {
                         interrupt = true;
-
+                        freqCycleCount = 0;
+                    }
                 }
                 else if (!intFE && intME)
                 {
                     /* Per-minute edge interrupt output */
-                    // TODO
+                    if (minuteEdgePending)
+                    {
+                        interrupt = true;
+                        minuteEdgePending = false;
+                    }
                 }
                 else if (intFE && intME)
                 {
                     /* Per-minute steady interrupt output */
-                    // TODO
+                    interrupt = true;
                 }
                 else if (!intFE && !intME && intAE)
                 {
@@ -143,6 +236,7 @@ namespace StoicGoose.Core.Cartridges
 
             second = 0;
             minute++;
+            minuteEdgePending = true;
             if (minute < 60) return;
 
             minute = 0;
@@ -301,6 +395,8 @@ namespace StoicGoose.Core.Cartridges
                 default:
                     break;
             }
+
+            ackPending = true;
         }
 
         public byte ReadPort(ushort port)
@@ -313,13 +409,15 @@ namespace StoicGoose.Core.Cartridges
 
                 payloadIndex++;
 
-                ChangeBit(ref retVal, 7, true); // TODO: correct?
+                ChangeBit(ref retVal, 7, ackPending);
                 ChangeBit(ref retVal, 4, payloadIndex < numPayloadBytes[command & 0b111]);
                 ChangeBit(ref retVal, 0, true);
                 retVal |= (byte)((command & 0b1111) << 1);
 
                 if (payloadIndex >= numPayloadBytes[command & 0b111])
                     payloadIndex = 0;
+
+                ackPending = false;
             }
             else if (port == 1)
             {
@@ -335,6 +433,7 @@ namespace StoicGoose.Core.Cartridges
             {
                 isReadAccess = IsBitSet(value, 0);
                 command = (byte)((value >> 1) & 0b111);
+                ackPending = false;
 
                 PerformAccess();
             }

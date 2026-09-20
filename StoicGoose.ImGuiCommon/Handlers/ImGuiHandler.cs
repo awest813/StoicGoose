@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using StoicGoose.Common.OpenGL;
@@ -11,6 +12,7 @@ using StoicGoose.Common.Utilities;
 using StoicGoose.ImGuiCommon.Windows;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Buffer = StoicGoose.Common.OpenGL.Buffer;
@@ -73,8 +75,11 @@ namespace StoicGoose.ImGuiCommon.Handlers
         Texture fontTexture = default;
 
         bool wasFrameBegun = false;
+        string iniSettingsPath = string.Empty;
 
         Vector2 lastMouseWheelOffset = default;
+        readonly bool[] mouseDownLatch = new bool[3];
+        readonly bool[] mouseUpLatch = new bool[3];
 
         public List<WindowBase> OpenWindows => [.. windowList.Where(x => x.window.IsWindowOpen).Select(x => x.window)];
 
@@ -82,6 +87,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
         {
             gameWindow = window;
             gameWindow.TextInput += (e) => pressedChars.Add((char)e.Unicode);
+            gameWindow.MouseDown += OnMouseDown;
+            gameWindow.MouseUp += OnMouseUp;
 
             imguiContext = ImGui.CreateContext();
             ImGui.SetCurrentContext(imguiContext);
@@ -102,6 +109,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
                 ShaderFactory.FromSource(ShaderType.FragmentShader, glslVersionString, string.Join(Environment.NewLine, fragmentShaderSource)));
 
             var io = ImGui.GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
+            io.ConfigWindowsMoveFromTitleBarOnly = true;
 
             io.Fonts.AddFontDefault();
             UpdateFontTexture(io);
@@ -266,9 +275,9 @@ namespace StoicGoose.ImGuiCommon.Handlers
             var keyboardState = gameWindow.KeyboardState;
 
             var io = ImGui.GetIO();
-            io.MouseDown[0] = mouseState[MouseButton.Left];
-            io.MouseDown[1] = mouseState[MouseButton.Right];
-            io.MouseDown[2] = mouseState[MouseButton.Middle];
+            io.MouseDown[0] = ResolveMouseDown(0, mouseState[MouseButton.Left]);
+            io.MouseDown[1] = ResolveMouseDown(1, mouseState[MouseButton.Right]);
+            io.MouseDown[2] = ResolveMouseDown(2, mouseState[MouseButton.Middle]);
             io.MousePos = new NumericsVector2(mousePos.X, mousePos.Y);
 
             io.AddMouseWheelEvent(
@@ -289,6 +298,45 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
             lastMouseWheelOffset = mouseState.Scroll;
         }
+
+        void OnMouseDown(MouseButtonEventArgs e)
+        {
+            var index = MapMouseButton(e.Button);
+            if (index < 0) return;
+            mouseDownLatch[index] = true;
+        }
+
+        void OnMouseUp(MouseButtonEventArgs e)
+        {
+            var index = MapMouseButton(e.Button);
+            if (index < 0) return;
+            mouseUpLatch[index] = true;
+        }
+
+        bool ResolveMouseDown(int index, bool currentlyDown)
+        {
+            if (mouseDownLatch[index])
+            {
+                mouseDownLatch[index] = false;
+                return true;
+            }
+
+            if (mouseUpLatch[index])
+            {
+                mouseUpLatch[index] = false;
+                return false;
+            }
+
+            return currentlyDown;
+        }
+
+        static int MapMouseButton(MouseButton button) => button switch
+        {
+            MouseButton.Left => 0,
+            MouseButton.Right => 1,
+            MouseButton.Middle => 2,
+            _ => -1
+        };
 
         public void RegisterWindow(WindowBase window, Func<object> getUserData)
         {
@@ -312,6 +360,29 @@ namespace StoicGoose.ImGuiCommon.Handlers
             windowList.RemoveAll(x => x.window is T);
 
             Log.WriteEvent(LogSeverity.Information, this, $"Deregistered all {typeof(T).Name}.");
+        }
+
+        public unsafe void SetIniFilename(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            iniSettingsPath = path;
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            var io = ImGui.GetIO();
+            io.NativePtr->IniFilename = (byte*)Marshal.StringToHGlobalAnsi(path);
+
+            if (File.Exists(path))
+                ImGui.LoadIniSettingsFromDisk(path);
+        }
+
+        public void SaveIniSettings()
+        {
+            if (!string.IsNullOrEmpty(iniSettingsPath))
+                ImGui.SaveIniSettingsToDisk(iniSettingsPath);
         }
 
         public void BeginFrame(float deltaTime)

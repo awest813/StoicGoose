@@ -19,6 +19,8 @@ namespace StoicGoose.GLWindow
         readonly ALContext context = default;
         readonly int source = -1;
         readonly int[] buffers = new int[numBuffers];
+        int filter = -1;
+        bool efxAvailable;
 
         readonly Queue<short[]> sampleQueue = new();
         short[] lastSamples = new short[512];
@@ -43,6 +45,8 @@ namespace StoicGoose.GLWindow
                 buffers = AL.GenBuffers(numBuffers);
                 for (int i = 0; i < buffers.Length; i++) GenerateBuffer(buffers[i]);
                 AL.SourcePlay(source);
+
+                InitializeFilters();
 
                 Log.WriteEvent(LogSeverity.Information, this, "Initialization successful.");
             }
@@ -104,6 +108,29 @@ namespace StoicGoose.GLWindow
             if (!IsAvailable) return;
 
             AL.Source(source, ALSourcef.Gain, mute ? 0.0f : volume);
+        }
+
+        private void InitializeFilters()
+        {
+            try
+            {
+                filter = ALC.EFX.GenFilter();
+                ALC.EFX.Filter(filter, FilterInteger.FilterType, (int)FilterType.Lowpass);
+                ALC.EFX.Filter(filter, FilterFloat.LowpassGain, 0.9f);
+                ALC.EFX.Filter(filter, FilterFloat.LowpassGainHF, 0.75f);
+                efxAvailable = filter != 0;
+            }
+            catch
+            {
+                efxAvailable = false;
+            }
+        }
+
+        public void SetLowPassFilter(bool enable)
+        {
+            if (!IsAvailable || !efxAvailable) return;
+
+            AL.Source(source, ALSourcei.EfxDirectFilter, enable ? filter : 0);
         }
 
         public void EnqueueSamples(short[] samples)

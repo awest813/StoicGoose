@@ -27,6 +27,9 @@ namespace StoicGoose.Core.Interfaces
         string InternalEepromDefaultUsername { get; }
         Dictionary<ushort, byte> InternalEepromDefaultData { get; }
 
+        bool IsSphinxCpu { get; }
+        bool IsPoweredOff { get; }
+
         Cartridge Cartridge { get; }
         V30MZ Cpu { get; }
         DisplayControllerCommon DisplayController { get; }
@@ -55,9 +58,15 @@ namespace StoicGoose.Core.Interfaces
         void LoadInternalEeprom(byte[] data);
         void LoadRom(byte[] data);
         void LoadSaveData(byte[] data);
+        void LoadRtcState(byte[] data);
 
         byte[] GetInternalEeprom();
         byte[] GetSaveData();
+        byte[] GetRtcState();
+        bool HasRtcSave { get; }
+
+        byte[] GetSaveState();
+        bool LoadSaveState(byte[] data);
 
         byte ReadMemory(uint address);
         void WriteMemory(uint address, byte value);

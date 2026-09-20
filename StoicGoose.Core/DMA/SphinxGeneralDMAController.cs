@@ -1,4 +1,5 @@
 ﻿using StoicGoose.Core.Interfaces;
+using System.IO;
 
 using static StoicGoose.Common.Utilities.BitHandling;
 
@@ -6,18 +7,18 @@ namespace StoicGoose.Core.DMA
 {
     public class SphinxGeneralDMAController(IMachine machine) : IPortAccessComponent
     {
-        // TODO: verify behavior!
-
         readonly IMachine machine = machine;
 
         /* REG_DMA_SRC(_HI) */
         uint dmaSource;
-        /* REG_DMA_DST */
+        /* REG_DMA_DST — destination is IRAM only (ports $44–$45; $43 unmapped) */
         ushort dmaDestination;
         /* REG_DMA_LEN */
         ushort dmaLength;
         /* REG_DMA_CTRL */
         byte dmaControl;
+
+        int cycleCount;
 
         public bool IsActive => IsBitSet(dmaControl, 7);
 
@@ -25,8 +26,7 @@ namespace StoicGoose.Core.DMA
 
         public void Reset()
         {
-            //
-
+            cycleCount = 0;
             ResetRegisters();
         }
 
@@ -40,28 +40,32 @@ namespace StoicGoose.Core.DMA
             //
         }
 
-        public int Step()
+        public void Step(int clockCyclesInStep)
         {
-            if (dmaLength == 0 || ((dmaSource >> 16) & 0x0F) == 0x01)
+            if (!IsActive) return;
+
+            cycleCount += clockCyclesInStep;
+
+            while (cycleCount >= 2)
             {
-                /* Disable DMA if length is zero OR source is SRAM */
-                ChangeBit(ref dmaControl, 7, false);
-                return 5;
-            }
-            else
-            {
-                if (((dmaSource >> 16) & 0x0F) != 0x01)
+                if (dmaLength == 0 || ((dmaSource >> 16) & 0x0F) == 0x01)
                 {
-                    /* Perform DMA if source is not SRAM */
-                    machine.WriteMemory((uint)(dmaDestination + 0), machine.ReadMemory(dmaSource + 0));
-                    machine.WriteMemory((uint)(dmaDestination + 1), machine.ReadMemory(dmaSource + 1));
+                    ChangeBit(ref dmaControl, 7, false);
+                    cycleCount = 0;
+                    return;
                 }
+
+                var destination = (uint)(dmaDestination & 0xFFFE);
+                machine.WriteMemory(destination, machine.ReadMemory(dmaSource));
+                machine.WriteMemory((uint)(destination + 1), machine.ReadMemory(dmaSource + 1));
 
                 dmaSource += (uint)(IsDecrementMode ? -2 : 2);
                 dmaDestination += (ushort)(IsDecrementMode ? -2 : 2);
                 dmaLength -= 2;
+                cycleCount -= 2;
 
-                return 2;
+                if (dmaLength == 0)
+                    ChangeBit(ref dmaControl, 7, false);
             }
         }
 
@@ -156,8 +160,27 @@ namespace StoicGoose.Core.DMA
                 case 0x48:
                     /* REG_DMA_CTRL */
                     dmaControl = (byte)(value & 0b11000000);
+                    cycleCount = 0;
                     break;
             }
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(dmaSource);
+            writer.Write(dmaDestination);
+            writer.Write(dmaLength);
+            writer.Write(dmaControl);
+            writer.Write(cycleCount);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            dmaSource = reader.ReadUInt32();
+            dmaDestination = reader.ReadUInt16();
+            dmaLength = reader.ReadUInt16();
+            dmaControl = reader.ReadByte();
+            cycleCount = reader.ReadInt32();
         }
     }
 }

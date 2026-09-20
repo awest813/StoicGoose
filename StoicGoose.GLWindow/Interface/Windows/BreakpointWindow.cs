@@ -66,7 +66,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     if (ImGui.BeginTable("##list-table", 3, tableFlags))
                     {
                         ImGui.TableSetupScrollFreeze(0, 1);
-                        ImGui.TableSetupColumn(string.Empty, tableColumnFlags);
+                        ImGui.TableSetupColumn("On", tableColumnFlags);
                         ImGui.TableSetupColumn("Expression", tableColumnFlags | ImGuiTableColumnFlags.WidthStretch);
                         ImGui.TableSetupColumn(string.Empty, tableColumnFlags);
                         ImGui.TableHeadersRow();
@@ -121,7 +121,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 ImGui.PopStyleVar();
 
-                ImGui.End();
+                EndWindow();
             }
 
             if (newBreakpointToAdd != null)

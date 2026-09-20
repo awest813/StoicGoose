@@ -1,5 +1,6 @@
 ﻿using StoicGoose.Common.Attributes;
 using StoicGoose.Core.Interfaces;
+using System.IO;
 
 using static StoicGoose.Common.Utilities.BitHandling;
 
@@ -7,8 +8,6 @@ namespace StoicGoose.Core.Display
 {
     public sealed class SphinxDisplayController(IMachine machine) : DisplayControllerCommon(machine)
     {
-        // TODO: reimplement high contrast mode; also, get a WSC, figure out how it's supposed to look?
-
         /* REG_BACK_COLOR */
         byte backColorPalette;
         /* REG_LCD_CTRL */
@@ -33,9 +32,9 @@ namespace StoicGoose.Core.Display
         protected override void RenderBackColor(int y, int x)
         {
             if (displayColorFlagSet)
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, backColorPalette, backColorIndex)), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, backColorPalette, backColorIndex), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
             else
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[backColorIndex & 0b0111])), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[backColorIndex & 0b0111]), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
         }
 
         protected override void RenderSCR1(int y, int x)
@@ -56,9 +55,9 @@ namespace StoicGoose.Core.Display
             if (!isOpaque) return;
 
             if (displayColorFlagSet)
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor)), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
             else
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]])), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]]), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
         }
 
         protected override void RenderSCR2(int y, int x)
@@ -84,9 +83,9 @@ namespace StoicGoose.Core.Display
             isUsedBySCR2[(y * HorizontalDisp) + x] = true;
 
             if (displayColorFlagSet)
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor)), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
             else
-                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]])), outputFramebuffer, x, y, HorizontalDisp);
+                DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]]), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
         }
 
         protected override void RenderSprites(int y, int x)
@@ -130,9 +129,9 @@ namespace StoicGoose.Core.Display
                     tilePal += 8;
 
                     if (displayColorFlagSet)
-                        DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor)), outputFramebuffer, x, y, HorizontalDisp);
+                        DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel(DisplayUtilities.ReadColor(machine, tilePal, pixelColor), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
                     else
-                        DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]])), outputFramebuffer, x, y, HorizontalDisp);
+                        DisplayUtilities.CopyPixel(DisplayUtilities.GeneratePixel((byte)(15 - palMonoPools[palMonoData[tilePal][pixelColor & 0b11]]), lcdContrastHigh), outputFramebuffer, x, y, HorizontalDisp);
                 }
             }
         }
@@ -221,6 +220,26 @@ namespace StoicGoose.Core.Display
                     base.WritePort(port, value);
                     break;
             }
+        }
+
+        public override void ExportState(BinaryWriter writer)
+        {
+            base.ExportState(writer);
+            writer.Write(backColorPalette);
+            writer.Write(lcdContrastHigh);
+            writer.Write(displayPackedFormatSet);
+            writer.Write(display4bppFlagSet);
+            writer.Write(displayColorFlagSet);
+        }
+
+        public override void ImportState(BinaryReader reader)
+        {
+            base.ImportState(reader);
+            backColorPalette = reader.ReadByte();
+            lcdContrastHigh = reader.ReadBoolean();
+            displayPackedFormatSet = reader.ReadBoolean();
+            display4bppFlagSet = reader.ReadBoolean();
+            displayColorFlagSet = reader.ReadBoolean();
         }
 
         [Port("REG_BACK_COLOR", 0x001)]

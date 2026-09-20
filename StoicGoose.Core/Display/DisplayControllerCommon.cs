@@ -6,7 +6,7 @@ using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Display
 {
-    public abstract class DisplayControllerCommon : IPortAccessComponent
+    public abstract partial class DisplayControllerCommon : IPortAccessComponent
     {
         public const int HorizontalDisp = 224;
         public const int HorizontalBlank = 32;
@@ -43,7 +43,8 @@ namespace StoicGoose.Core.Display
         protected int spriteCountNextFrame = 0, activeSpriteCountOnLine = 0;
 
         protected int cycleCount = 0;
-        protected readonly byte[] outputFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
+        protected byte[] outputFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
+        protected byte[] transferFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
 
         public Action<byte[]> SendFramebuffer { get; set; } = default;
 
@@ -92,6 +93,7 @@ namespace StoicGoose.Core.Display
             cycleCount = 0;
 
             Array.Fill<byte>(outputFramebuffer, 255);
+            Array.Fill<byte>(transferFramebuffer, 255);
 
             Array.Fill(isUsedBySCR2, false);
 
@@ -143,9 +145,10 @@ namespace StoicGoose.Core.Display
                 if (lineCurrent == VerticalDisp - 2)
                 {
                     spriteCountNextFrame = 0;
-                    for (var j = sprFirst; j < sprFirst + Math.Min(maxSpriteCount, sprCount); j++)
+                    for (var j = 0; j < Math.Min(maxSpriteCount, sprCount); j++)
                     {
-                        var k = (uint)((sprBase << 9) + (j << 2));
+                        var spriteIndex = (sprFirst + j) & 0x7F;
+                        var k = (uint)((sprBase << 9) + (spriteIndex << 2));
                         spriteDataNextFrame[spriteCountNextFrame++] = (uint)(machine.ReadMemory(k + 3) << 24 | machine.ReadMemory(k + 2) << 16 | machine.ReadMemory(k + 1) << 8 | machine.ReadMemory(k + 0));
                     }
                 }
@@ -171,8 +174,9 @@ namespace StoicGoose.Core.Display
                     if (vBlankTimer.Step())
                         interrupt |= DisplayInterrupts.VBlankTimer;
 
-                    /* Transfer framebuffer */
-                    SendFramebuffer?.Invoke(outputFramebuffer.Clone() as byte[]);
+                    /* Present the completed frame without mutating the buffer the renderer still holds. */
+                    (outputFramebuffer, transferFramebuffer) = (transferFramebuffer, outputFramebuffer);
+                    SendFramebuffer?.Invoke(transferFramebuffer);
                 }
 
                 /* Advance scanline */
@@ -732,8 +736,6 @@ namespace StoicGoose.Core.Display
         [Port("REG_VTMR_CTR", 0x0AA, 0x0AB)]
         [BitDescription("V-blank timer counter")]
         public ushort VBlankTimerCounter => vBlankTimer.Counter;
-
-        // TODO: reorganize palmono stuff & add attributes
 
         public byte[] PalMonoPools => palMonoPools;
         public byte[][] PalMonoData => palMonoData;

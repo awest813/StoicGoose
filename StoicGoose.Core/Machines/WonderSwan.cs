@@ -26,7 +26,7 @@ namespace StoicGoose.Core.Machines
             { 0x77, 0x00 }, // ""
             { 0x78, 0x00 }, // Last game played, game ID [set to presumably none]
             { 0x79, 0x00 }, // ""
-            { 0x7A, 0x00 }, // Swan ID (see Mama Mitte) -- TODO: set to valid/random value?
+            { 0x7A, 0x00 }, // Swan ID low (assigned on first boot if unset)
             { 0x7B, 0x00 }, // ""
             { 0x7C, 0x00 }, // Number of different games played [set to presumably none]
             { 0x7D, 0x00 }, // Number of times settings were changed [set to presumably none]

@@ -1,7 +1,9 @@
 ﻿using StoicGoose.Common.Utilities;
 using StoicGoose.Core.EEPROMs;
 using StoicGoose.Core.Interfaces;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 
 namespace StoicGoose.Core.Cartridges
 {
@@ -41,10 +43,7 @@ namespace StoicGoose.Core.Cartridges
             romBank1 = 0xFF;
 
             eeprom?.Reset();
-            rtc?.Reset();
-
-            // HACK: set RTC to current date/time on boot for testing
-            rtc?.Program(DateTime.Now);
+            rtc?.ResetCommunication();
         }
 
         public void Shutdown()
@@ -56,23 +55,30 @@ namespace StoicGoose.Core.Cartridges
         public void LoadRom(byte[] data)
         {
             rom = data;
-            romMask = (uint)(rom.Length - 1);
+            romMask = IsPowerOfTwo(rom.Length) ? (uint)(rom.Length - 1) : 0;
 
             metadata = new Metadata(rom);
+
+            sram = [];
+            sramMask = 0;
+            eeprom?.Shutdown();
+            eeprom = null;
+            rtc?.Shutdown();
+            rtc = null;
 
             if (metadata.SaveSize != 0)
             {
                 if (metadata.IsSramSave)
                 {
                     sram = new byte[metadata.SaveSize];
+                    Array.Fill<byte>(sram, 0xFF);
                     sramMask = (uint)(sram.Length - 1);
                 }
                 else if (metadata.IsEepromSave)
                 {
                     switch (metadata.SaveType)
                     {
-                        // TODO: verify size/address bits
-                        case Metadata.SaveTypes.Eeprom1Kbit: eeprom = new EEPROM(metadata.SaveSize, 6); break;
+                        case Metadata.SaveTypes.Eeprom1Kbit: eeprom = new EEPROM(metadata.SaveSize, 6); break; // M93LC46, 6 address bits
                         case Metadata.SaveTypes.Eeprom16Kbit: eeprom = new EEPROM(metadata.SaveSize, 10); break;
                         case Metadata.SaveTypes.Eeprom8Kbit: eeprom = new EEPROM(metadata.SaveSize, 9); break;
                     }
@@ -83,6 +89,7 @@ namespace StoicGoose.Core.Cartridges
             {
                 // NOTE: "RTC present" flag is not entirely consistent; ex. Digimon Tamers Battle Spirit has the flag, but does not have an RTC
                 rtc = new RTC();
+                rtc.Reset();
             }
 
             Crc32 = Common.Utilities.Crc32.Calculate(rom);
@@ -105,22 +112,14 @@ namespace StoicGoose.Core.Cartridges
             Log.WriteLine($"  Checksum (calculated): 0x{Metadata.CalculatedChecksum:X4}");
             Log.WriteLine($"  Checksum is {(metadata.IsChecksumValid ? $"{Ansi.Green}valid" : $"{Ansi.Red}invalid")}{Ansi.Reset}!");
 
-            if (metadata.PublisherId == 0x01 && metadata.GameId == 0x27)
-            {
-                // HACK: Meitantei Conan - Nishi no Meitantei Saidai no Kiki, prevent crash on startup (see TODO in V30MZ, prefetching)
-                rom[0xFFFE8] = 0xEA;
-                rom[0xFFFE9] = 0x00;
-                rom[0xFFFEA] = 0x00;
-                rom[0xFFFEB] = 0x00;
-                rom[0xFFFEC] = 0x20;
-                Log.WriteLine($"~ {Ansi.Red}Conan prefetch hack enabled{Ansi.Reset} ~");
-            }
         }
 
         public void LoadSram(byte[] data)
         {
-            if (data.Length != sram.Length) throw new Exception("Sram size mismatch");
-            Buffer.BlockCopy(data, 0, sram, 0, data.Length);
+            if (sram.Length == 0 || data == null || data.Length == 0)
+                return;
+
+            Buffer.BlockCopy(data, 0, sram, 0, Math.Min(data.Length, sram.Length));
         }
 
         public void LoadEeprom(byte[] data)
@@ -138,6 +137,79 @@ namespace StoicGoose.Core.Cartridges
             return eeprom?.GetContents().Clone() as byte[];
         }
 
+        public bool HasRtc => rtc != null;
+
+        public byte[] GetRtcState() => rtc?.ExportState();
+
+        public void LoadRtcState(byte[] data) => rtc?.ImportState(data);
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(romBank2);
+            writer.Write(sramBank);
+            writer.Write(romBank0);
+            writer.Write(romBank1);
+            SaveStateIO.WriteBytes(writer, sram);
+
+            writer.Write(eeprom != null);
+            eeprom?.ExportState(writer);
+
+            writer.Write(rtc != null);
+            rtc?.ExportRuntimeState(writer);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            romBank2 = reader.ReadByte();
+            sramBank = reader.ReadByte();
+            romBank0 = reader.ReadByte();
+            romBank1 = reader.ReadByte();
+            LoadSram(SaveStateIO.ReadBytes(reader));
+
+            var hasEeprom = reader.ReadBoolean();
+            if (hasEeprom)
+            {
+                if (eeprom != null)
+                    eeprom.ImportState(reader);
+                else
+                    DiscardEepromState(reader);
+            }
+
+            var hasRtc = reader.ReadBoolean();
+            if (hasRtc)
+            {
+                if (rtc != null)
+                    rtc.ImportRuntimeState(reader);
+                else
+                    DiscardRtcRuntimeState(reader);
+            }
+        }
+
+        private static void DiscardEepromState(BinaryReader reader)
+        {
+            SaveStateIO.ReadBytes(reader);
+            reader.ReadInt32();
+            reader.ReadBoolean();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+        }
+
+        private static void DiscardRtcRuntimeState(BinaryReader reader)
+        {
+            SaveStateIO.ReadBytes(reader);
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadBoolean();
+            reader.ReadBoolean();
+            reader.ReadInt32();
+            reader.ReadInt32();
+            reader.ReadBoolean();
+        }
+
         public bool Step(int clockCyclesInStep)
         {
             return rtc != null && rtc.Step(clockCyclesInStep);
@@ -150,11 +222,11 @@ namespace StoicGoose.Core.Cartridges
                 /* SRAM */
                 var n when n >= 0x010000 && n < 0x020000 && sram.Length != 0 => sram[((uint)(sramBank << 16) | (address & 0x0FFFF)) & sramMask],
                 /* ROM bank 0 */
-                var n when n >= 0x020000 && n < 0x030000 && rom.Length != 0 => rom[((uint)(romBank0 << 16) | (address & 0x0FFFF)) & romMask],
+                var n when n >= 0x020000 && n < 0x030000 && rom.Length != 0 => rom[MapRom((uint)(romBank0 << 16) | (address & 0x0FFFF))],
                 /* ROM bank 1 */
-                var n when n >= 0x030000 && n < 0x040000 && rom.Length != 0 => rom[((uint)(romBank1 << 16) | (address & 0x0FFFF)) & romMask],
+                var n when n >= 0x030000 && n < 0x040000 && rom.Length != 0 => rom[MapRom((uint)(romBank1 << 16) | (address & 0x0FFFF))],
                 /* ROM bank 2 */
-                var n when n >= 0x040000 && n < 0x100000 && rom.Length != 0 => rom[((uint)(romBank2 << 20) | (address & 0xFFFFF)) & romMask],
+                var n when n >= 0x040000 && n < 0x100000 && rom.Length != 0 => rom[MapRom((uint)(romBank2 << 20) | (address & 0xFFFFF))],
                 /* Unmapped */
                 _ => 0x90,
             };
@@ -243,5 +315,18 @@ namespace StoicGoose.Core.Cartridges
                     break;
             }
         }
+
+        private uint MapRom(uint linear)
+        {
+            if (rom.Length == 0)
+                return 0;
+
+            if (romMask != 0)
+                return linear & romMask;
+
+            return linear % (uint)rom.Length;
+        }
+
+        private static bool IsPowerOfTwo(int value) => value > 0 && (value & (value - 1)) == 0;
     }
 }

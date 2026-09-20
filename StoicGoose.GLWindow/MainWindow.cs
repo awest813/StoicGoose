@@ -3,6 +3,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using StoicGoose.Common.Extensions;
+using StoicGoose.Common.IO;
 using StoicGoose.Common.Localization;
 using StoicGoose.Common.OpenGL;
 using StoicGoose.Common.Utilities;
@@ -49,7 +50,7 @@ namespace StoicGoose.GLWindow
         Breakpoint lastBreakpointHit = default;
 
         /* Misc. runtime variables */
-        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
+        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartRtcFilename = default, cartStateFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
         bool isRunning = false, isPaused = false, isVerticalOrientation = false;
         double framesPerSecond = 0.0;
 
@@ -68,6 +69,8 @@ namespace StoicGoose.GLWindow
 
         protected override void OnLoad()
         {
+            CursorState = CursorState.Normal;
+
             InitializeUI();
             LocalizeUI();
 
@@ -77,9 +80,10 @@ namespace StoicGoose.GLWindow
             inputHandler = new();
 
             imGuiHandler = new(this, Program.RequiredGLVersion);
+            imGuiHandler.SetIniFilename(Path.Combine(Program.InternalDataPath, "imgui.ini"));
             imGuiHandler.AddFontFromEmbeddedResource("Assets.JF-Dot-K14-2004.ttf", 14.0f, ImGuiHandler.GlyphRanges.Japanese);
             imGuiHandler.RegisterWindow(logWindow, () => null);
-            imGuiHandler.RegisterWindow(displayWindow, () => (displayTexture, isVerticalOrientation));
+            imGuiHandler.RegisterWindow(displayWindow, () => (displayTexture, isVerticalOrientation, isRunning));
             imGuiHandler.RegisterWindow(disassemblerWindow, () => (machine, isRunning, isPaused));
             imGuiHandler.RegisterWindow(breakpointWindow, () => (breakpoints, isRunning));
             imGuiHandler.RegisterWindow(memoryEditorWindow, () => (machine, isRunning));
@@ -89,6 +93,7 @@ namespace StoicGoose.GLWindow
             imGuiHandler.RegisterWindow(tilemapViewerWindow, () => machine);
             imGuiHandler.RegisterWindow(memoryPatchWindow, () => (memoryPatches, isRunning));
             imGuiHandler.RegisterWindow(inputSettingsWindow, () => (Program.Configuration.GameControls, Program.Configuration.SystemControls));
+            imGuiHandler.RegisterWindow(wavRecorderWindow, () => null);
 
             foreach (var windowTypeName in Program.Configuration.WindowsToRestore)
             {
@@ -102,6 +107,7 @@ namespace StoicGoose.GLWindow
             renderState.SetBlending(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
             soundHandler.SetMute(Program.Configuration.Mute);
+            soundHandler.SetLowPassFilter(Program.Configuration.LowPassFilter);
 
             inputHandler.SetGameWindow(this);
             inputHandler.SetKeyMapping(Program.Configuration.GameControls, Program.Configuration.SystemControls);
@@ -125,10 +131,11 @@ namespace StoicGoose.GLWindow
 
             Program.Configuration.DisplaySize = displayWindow.WindowScale;
 
+            wavRecorderWindow?.StopRecording();
+
             Program.SaveConfiguration();
 
-            /* Ensure imgui.ini gets written */
-            ImGuiNET.ImGui.SaveIniSettingsToDisk(ImGuiNET.ImGui.GetIO().IniFilename.ToString());
+            imGuiHandler.SaveIniSettings();
 
             soundHandler.Dispose();
 
@@ -157,7 +164,42 @@ namespace StoicGoose.GLWindow
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             var keyState = KeyboardState.GetSnapshot();
-            if (keyState.IsKeyDown(Keys.Escape)) Close();
+            var imguiBusy = fileDialogHandler.IsAnyDialogOpen || messageBoxHandler.IsAnyMessageBoxOpen;
+            var typing = ImGuiNET.ImGui.GetCurrentContext() != IntPtr.Zero && ImGuiNET.ImGui.GetIO().WantTextInput;
+
+            if (keyState.IsKeyPressed(Keys.Escape) && !imguiBusy)
+            {
+                var focusedToolWindow = imGuiHandler.OpenWindows.FirstOrDefault(window => window.IsFocused && window is not DisplayWindow);
+                if (focusedToolWindow != null)
+                    focusedToolWindow.IsWindowOpen = false;
+            }
+
+            var ctrl = keyState.IsKeyDown(Keys.LeftControl) || keyState.IsKeyDown(Keys.RightControl);
+            if (!imguiBusy && !typing)
+            {
+                if (keyState.IsKeyPressed(Keys.F5) && isRunning)
+                    SaveEmulatorState();
+                else if (keyState.IsKeyPressed(Keys.F7) && isRunning)
+                    LoadEmulatorState();
+            }
+
+            if (ctrl && !imguiBusy && !typing)
+            {
+                if (keyState.IsKeyPressed(Keys.O))
+                    openRomDialog.IsOpen = true;
+                else if (keyState.IsKeyPressed(Keys.P) && isRunning)
+                {
+                    isPaused = !isPaused;
+                    if (isPaused) SaveCartridgeRam();
+                }
+                else if (keyState.IsKeyPressed(Keys.R) && isRunning)
+                {
+                    SaveVolatileData();
+                    machine?.Reset();
+                }
+                else if (keyState.IsKeyPressed(Keys.W))
+                    wavRecorderWindow.IsWindowOpen = !wavRecorderWindow.IsWindowOpen;
+            }
 
             frameTimeElapsed += args.Time;
 
@@ -171,6 +213,12 @@ namespace StoicGoose.GLWindow
                     machine.RunFrame();
                     soundHandler.Update();
 
+                    if (machine.IsPoweredOff)
+                    {
+                        isRunning = false;
+                        statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessagePoweredOff");
+                    }
+
                     framesPerSecond = 1.0 / frameTimeElapsed;
                 }
                 else if (!isRunning)
@@ -182,7 +230,7 @@ namespace StoicGoose.GLWindow
             statusRunningItem.Label = isPaused ? Localizer.GetString("MainWindow.StatusRunningPaused") : (isRunning ? Localizer.GetString("MainWindow.StatusRunningRunning") : Localizer.GetString("MainWindow.StatusRunningStopped"));
             statusRunningItem.IsEnabled = isRunning && !isPaused;
 
-            statusFpsItem.Label = $"{framesPerSecond:0} fps";
+            statusFpsItem.Label = isRunning ? $"{framesPerSecond:0} fps" : "--";
             statusFpsItem.IsEnabled = isRunning && !isPaused;
 
             base.OnUpdateFrame(args);
@@ -261,7 +309,11 @@ namespace StoicGoose.GLWindow
             machine = Activator.CreateInstance(Type.GetType($"{typeName}, {Assembly.GetAssembly(typeof(IMachine))}")) as IMachine;
             machine.Initialize();
             machine.DisplayController.SendFramebuffer = (fb) => { displayTexture?.Update(fb); };
-            machine.SoundController.SendSamples = (s) => { soundHandler?.EnqueueSamples(s); };
+            machine.SoundController.SendSamples = (s) =>
+            {
+                soundHandler?.EnqueueSamples(s);
+                wavRecorderWindow?.EnqueueSamples(s);
+            };
             machine.ReceiveInput = () =>
             {
                 var buttonsPressed = new List<string>();
@@ -277,7 +329,7 @@ namespace StoicGoose.GLWindow
                 return (buttonsPressed, buttonsHeld);
             };
 
-            ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks);
+            ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks || Program.Configuration.EnableCheats);
             ApplyMachineBreakpointHandlers(Program.Configuration.EnableBreakpoints);
 
             breakpointVariables = new(machine);
@@ -302,6 +354,8 @@ namespace StoicGoose.GLWindow
                 .ToDictionary(x => x[0], x => x[1]));
 
             displayTexture = new Texture(machine.ScreenWidth, machine.ScreenHeight, 0, 0, 0, 255);
+            displayTexture.SetTextureFilter(TextureMinFilter.Nearest, TextureMagFilter.Nearest);
+            displayTexture.SetTextureWrapMode(TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge);
 
             if (Program.Configuration.BootstrapFiles.TryGetValue(typeName, out string value))
                 bootstrapFilename = value;
@@ -315,20 +369,7 @@ namespace StoicGoose.GLWindow
 
         private void ApplyMachinePatchHandlers(bool enabled)
         {
-            if (enabled)
-            {
-                machine.ReadMemoryCallback = MachineReadMemoryCallback;
-                machine.WriteMemoryCallback = MachineWriteMemoryCallback;
-                machine.ReadPortCallback = MachineReadPortCallback;
-                machine.WritePortCallback = MachineWritePortCallback;
-            }
-            else
-            {
-                machine.ReadMemoryCallback = default;
-                machine.WriteMemoryCallback = default;
-                machine.ReadPortCallback = default;
-                machine.WritePortCallback = default;
-            }
+            machine.ReadMemoryCallback = enabled ? MachineReadMemoryCallback : default;
         }
 
         private void ApplyMachineBreakpointHandlers(bool enabled)
@@ -354,6 +395,7 @@ namespace StoicGoose.GLWindow
         private void SaveVolatileData()
         {
             SaveCartridgeRam();
+            SaveCartridgeRtc();
             SaveInternalEeprom();
 
             SaveMemoryPatches();
@@ -390,22 +432,6 @@ namespace StoicGoose.GLWindow
             return value;
         }
 
-        private void MachineWriteMemoryCallback(uint address, byte value)
-        {
-            // TODO? -- remove callback?
-        }
-
-        private byte MachineReadPortCallback(ushort port, byte value)
-        {
-            // TODO? -- remove callback?
-            return value;
-        }
-
-        private void MachineWritePortCallback(ushort port, byte value)
-        {
-            // TODO? -- remove callback?
-        }
-
         private bool MachineRunStepCallback()
         {
             /* EXTREMELY critical for performance b/c called on every machine step; do not use "heavy" functionality (ex. LINQ) */
@@ -425,7 +451,7 @@ namespace StoicGoose.GLWindow
                 {
                     Log.WriteEvent(LogSeverity.Information, this, $"Breakpoint hit: ({bp.Expression})");
 
-                    breakpointHitMessageBox.Message = $"Breakpoint with condition ({bp.Expression}) was hit.\n\nDisassembler window has been opened.";
+                    breakpointHitMessageBox.Message = Localizer.GetString("MainWindow.BreakpointHitMessage", new { bp.Expression });
                     breakpointHitMessageBox.IsOpen = true;
 
                     isPaused = true;
@@ -456,7 +482,7 @@ namespace StoicGoose.GLWindow
 
         private bool TryLoadAndRunCartridge(string filename)
         {
-            var result = openRomDialog.GetFilterExtensions(0).Contains(Path.GetExtension(filename)) && File.Exists(filename);
+            var result = RomFile.IsSupported(filename);
             if (result) LoadAndRunCartridge(filename);
             return result;
         }
@@ -473,18 +499,19 @@ namespace StoicGoose.GLWindow
 
             cartridgeFilename = filename;
             cartSaveFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.sav";
+            cartRtcFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.rtc";
+            cartStateFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.sst";
             cartPatchFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_patches.json";
             cartBreakpointFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_breakpoints.json";
 
-            using var stream = new FileStream(cartridgeFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
+            var data = RomFile.Read(cartridgeFilename);
             machine.LoadRom(data);
 
             isVerticalOrientation = machine.Cartridge.Metadata.Orientation == CartridgeMetadata.Orientations.Vertical;
             inputHandler.SetVerticalOrientation(isVerticalOrientation);
 
             LoadCartridgeRam();
+            LoadCartridgeRtc();
             LoadBootstrap();
             LoadInternalEeprom();
 
@@ -498,6 +525,8 @@ namespace StoicGoose.GLWindow
             statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageEmulating", new { machine.Manufacturer, machine.Model, Filename = cartridgeFilename, GameId = machine.Cartridge.Metadata.GameIdString });
 
             Program.Configuration.LastRomLoaded = cartridgeFilename;
+            AddToRecentFiles(cartridgeFilename);
+            RebuildRecentFilesMenu();
 
             Program.SaveConfiguration();
 
@@ -528,10 +557,17 @@ namespace StoicGoose.GLWindow
             var path = Path.Combine(Program.SaveDataPath, cartSaveFilename);
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0) machine.LoadSaveData(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0) machine.LoadSaveData(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save data from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadInternalEeprom()
@@ -541,10 +577,17 @@ namespace StoicGoose.GLWindow
             var path = Path.Combine(Program.InternalDataPath, Program.InternalEepromFilenames[machine.GetType()]);
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0) machine.LoadInternalEeprom(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0) machine.LoadInternalEeprom(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load internal EEPROM from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadMemoryPatches()
@@ -590,8 +633,90 @@ namespace StoicGoose.GLWindow
 
             var path = Path.Combine(Program.SaveDataPath, cartSaveFilename);
 
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save data to '{path}': {ex.Message}");
+            }
+        }
+
+        private void LoadCartridgeRtc()
+        {
+            if (machine == null || !machine.HasRtcSave) return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartRtcFilename);
+            if (!File.Exists(path)) return;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var data = new byte[stream.Length];
+            stream.ReadExactly(data);
+            if (data.Length != 0) machine.LoadRtcState(data);
+        }
+
+        private void SaveCartridgeRtc()
+        {
+            if (machine == null || !machine.HasRtcSave) return;
+
+            var data = machine.GetRtcState();
+            if (data.Length == 0) return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartRtcFilename);
+
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             stream.Write(data, 0, data.Length);
+        }
+
+        private void SaveEmulatorState()
+        {
+            if (machine == null || !isRunning || string.IsNullOrEmpty(cartStateFilename))
+                return;
+
+            try
+            {
+                var data = machine.GetSaveState();
+                var path = Path.Combine(Program.SaveDataPath, cartStateFilename);
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateSaved");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save state: {ex.Message}");
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateSaveFailed");
+            }
+        }
+
+        private void LoadEmulatorState()
+        {
+            if (machine == null || !isRunning || string.IsNullOrEmpty(cartStateFilename))
+                return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartStateFilename);
+            if (!File.Exists(path))
+            {
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+                return;
+            }
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (machine.LoadSaveState(data))
+                    statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoaded");
+                else
+                    statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save state from '{path}': {ex.Message}");
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
         }
 
         private void SaveInternalEeprom()

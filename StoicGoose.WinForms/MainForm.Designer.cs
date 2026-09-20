@@ -40,6 +40,11 @@
 			this.emulationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.pauseToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.saveStateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.loadStateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.shutdownToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripSeparator8 = new System.Windows.Forms.ToolStripSeparator();
 			this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.screenSizeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.shadersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -59,6 +64,7 @@
 			this.statusStrip = new System.Windows.Forms.StatusStrip();
 			this.tsslStatus = new System.Windows.Forms.ToolStripStatusLabel();
 			this.tsslEmulationStatus = new System.Windows.Forms.ToolStripStatusLabel();
+			this.tsslFps = new System.Windows.Forms.ToolStripStatusLabel();
 			this.ofdOpenRom = new System.Windows.Forms.OpenFileDialog();
 			this.sfdSaveWav = new System.Windows.Forms.SaveFileDialog();
 			this.renderControl = new StoicGoose.WinForms.OpenGL.RenderControl();
@@ -140,7 +146,12 @@
 			// 
 			this.emulationToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.pauseToolStripMenuItem,
-            this.resetToolStripMenuItem});
+            this.resetToolStripMenuItem,
+            this.toolStripSeparator7,
+            this.saveStateToolStripMenuItem,
+            this.loadStateToolStripMenuItem,
+            this.toolStripSeparator8,
+            this.shutdownToolStripMenuItem});
 			this.emulationToolStripMenuItem.Name = "emulationToolStripMenuItem";
 			this.emulationToolStripMenuItem.Overflow = System.Windows.Forms.ToolStripItemOverflow.AsNeeded;
 			this.emulationToolStripMenuItem.Size = new System.Drawing.Size(73, 20);
@@ -161,6 +172,37 @@
 			this.resetToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
 			this.resetToolStripMenuItem.Text = "&Reset";
 			this.resetToolStripMenuItem.Click += new System.EventHandler(this.resetToolStripMenuItem_Click);
+			// 
+			// saveStateToolStripMenuItem
+			// 
+			this.saveStateToolStripMenuItem.Enabled = false;
+			this.saveStateToolStripMenuItem.Name = "saveStateToolStripMenuItem";
+			this.saveStateToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F5;
+			this.saveStateToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+			this.saveStateToolStripMenuItem.Text = "&Save State";
+			this.saveStateToolStripMenuItem.Click += new System.EventHandler(this.saveStateToolStripMenuItem_Click);
+			// 
+			// loadStateToolStripMenuItem
+			// 
+			this.loadStateToolStripMenuItem.Enabled = false;
+			this.loadStateToolStripMenuItem.Name = "loadStateToolStripMenuItem";
+			this.loadStateToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F7;
+			this.loadStateToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+			this.loadStateToolStripMenuItem.Text = "&Load State";
+			this.loadStateToolStripMenuItem.Click += new System.EventHandler(this.loadStateToolStripMenuItem_Click);
+			// 
+			// toolStripSeparator8
+			// 
+			this.toolStripSeparator8.Name = "toolStripSeparator8";
+			this.toolStripSeparator8.Size = new System.Drawing.Size(145, 6);
+			// 
+			// shutdownToolStripMenuItem
+			// 
+			this.shutdownToolStripMenuItem.Enabled = false;
+			this.shutdownToolStripMenuItem.Name = "shutdownToolStripMenuItem";
+			this.shutdownToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+			this.shutdownToolStripMenuItem.Text = "Shut&down";
+			this.shutdownToolStripMenuItem.Click += new System.EventHandler(this.shutdownToolStripMenuItem_Click);
 			// 
 			// optionsToolStripMenuItem
 			// 
@@ -285,7 +327,8 @@
 			// 
 			this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsslStatus,
-            this.tsslEmulationStatus});
+            this.tsslEmulationStatus,
+            this.tsslFps});
 			this.statusStrip.Location = new System.Drawing.Point(0, 312);
 			this.statusStrip.Name = "statusStrip";
 			this.statusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 16, 0);
@@ -307,6 +350,13 @@
 			this.tsslEmulationStatus.Size = new System.Drawing.Size(22, 17);
 			this.tsslEmulationStatus.Text = "---";
 			this.tsslEmulationStatus.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			// 
+			// tsslFps
+			// 
+			this.tsslFps.Name = "tsslFps";
+			this.tsslFps.Size = new System.Drawing.Size(40, 17);
+			this.tsslFps.Text = "--";
+			this.tsslFps.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
 			// sfdSaveWav
 			// 
@@ -384,6 +434,12 @@
 		private System.Windows.Forms.ToolStripMenuItem emulationToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem resetToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem pauseToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem saveStateToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem loadStateToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem shutdownToolStripMenuItem;
+		private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+		private System.Windows.Forms.ToolStripSeparator toolStripSeparator8;
+		private System.Windows.Forms.ToolStripStatusLabel tsslFps;
 		private System.Windows.Forms.ToolStripMenuItem rotateScreenToolStripMenuItem;
 		private StoicGoose.WinForms.Windows.BindableToolStripMenuItem limitFPSToolStripMenuItem;
 		private StoicGoose.WinForms.OpenGL.RenderControl renderControl;

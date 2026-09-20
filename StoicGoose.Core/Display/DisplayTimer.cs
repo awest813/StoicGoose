@@ -1,8 +1,22 @@
-﻿namespace StoicGoose.Core.Display
+﻿using System.IO;
+
+namespace StoicGoose.Core.Display
 {
     public class DisplayTimer
     {
-        public bool Enable { get; set; }
+        bool enable;
+
+        public bool Enable
+        {
+            get => enable;
+            set
+            {
+                if (value && !enable && Frequency != 0)
+                    Counter = Frequency;
+                enable = value;
+            }
+        }
+
         public bool Repeating { get; set; }
         public ushort Frequency { get; set; }
 
@@ -15,7 +29,7 @@
 
         public void Reset()
         {
-            Enable = Repeating = false;
+            enable = Repeating = false;
             Frequency = Counter = 0;
         }
 
@@ -26,15 +40,30 @@
 
         public bool Step()
         {
-            var counterNew = (ushort)(Counter - 1);
+            if (!enable || Counter == 0)
+                return false;
 
-            if (Enable && Counter != 0)
-            {
-                Counter = counterNew;
-                if (Repeating && Counter == 0)
-                    Reload();
-            }
-            return counterNew == 0;
+            Counter--;
+            var expired = Counter == 0;
+            if (expired && Repeating)
+                Reload();
+            return expired;
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(enable);
+            writer.Write(Repeating);
+            writer.Write(Frequency);
+            writer.Write(Counter);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            enable = reader.ReadBoolean();
+            Repeating = reader.ReadBoolean();
+            Frequency = reader.ReadUInt16();
+            Counter = reader.ReadUInt16();
         }
     }
 }

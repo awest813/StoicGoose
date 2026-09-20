@@ -5,6 +5,8 @@ using StoicGoose.GLWindow.Interface.Windows;
 using StoicGoose.ImGuiCommon.Handlers;
 using StoicGoose.ImGuiCommon.Widgets;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +16,9 @@ namespace StoicGoose.GLWindow
 {
     partial class MainWindow
     {
+        const int maxRecentFiles = 15;
+        const int maxScreenSizeFactor = 5;
+
         InputSettingsWindow inputSettingsWindow = default;
         DisplayWindow displayWindow = default;
         DisassemblerWindow disassemblerWindow = default;
@@ -24,11 +29,13 @@ namespace StoicGoose.GLWindow
         BreakpointWindow breakpointWindow = default;
         MemoryEditorWindow memoryEditorWindow = default;
         TilemapViewerWindow tilemapViewerWindow = default;
+        WavRecorderWindow wavRecorderWindow = default;
 
-        MenuItem fileMenu = default, emulationMenu = default, windowsMenu = default, optionsMenu = default, helpMenu = default;
+        MenuItem fileMenu = default, emulationMenu = default, windowsMenu = default, optionsMenu = default, cheatsMenu = default, helpMenu = default;
+        MenuItem recentFilesMenu = default;
         MessageBox aboutMessageBox = default, breakpointHitMessageBox = default;
         StatusBarItem statusMessageItem = default, statusRunningItem = default, statusFpsItem = default;
-        FileDialog openRomDialog = default, selectBootstrapRomDialog = default;
+        FileDialog openRomDialog = default, selectBootstrapRomDialog = default, saveWavDialog = default;
 
         BackgroundLogo backgroundGoose = default;
 
@@ -56,6 +63,18 @@ namespace StoicGoose.GLWindow
             memoryEditorWindow = new();
 
             tilemapViewerWindow = new();
+            wavRecorderWindow = new(44100, 2)
+            {
+                BrowseRequested = () =>
+                {
+                    if (!string.IsNullOrEmpty(wavRecorderWindow.OutputPath))
+                    {
+                        saveWavDialog.InitialDirectory = Path.GetDirectoryName(wavRecorderWindow.OutputPath);
+                        saveWavDialog.InitialFilename = Path.GetFileName(wavRecorderWindow.OutputPath);
+                    }
+                    saveWavDialog.IsOpen = true;
+                }
+            };
 
             void reinitMachineIfRunning()
             {
@@ -84,6 +103,9 @@ namespace StoicGoose.GLWindow
                 };
             }
 
+            recentFilesMenu = new(localization: "MainWindow.Menus.RecentFiles");
+            RebuildRecentFilesMenu();
+
             fileMenu = new(localization: "MainWindow.Menus.File")
             {
                 SubItems =
@@ -96,7 +118,14 @@ namespace StoicGoose.GLWindow
                             openRomDialog.InitialFilename = Path.GetFileName(Program.Configuration.LastRomLoaded);
                         }
                         openRomDialog.IsOpen = true;
-                    }),
+                    })
+                    { Shortcut = "Ctrl+O" },
+                    new(localization: "MainWindow.Menus.SaveWAV",
+                    clickAction: (_) => { wavRecorderWindow.IsWindowOpen = !wavRecorderWindow.IsWindowOpen; },
+                    updateAction: (s) => { s.IsChecked = wavRecorderWindow.IsWindowOpen; })
+                    { Shortcut = "Ctrl+W" },
+                    new("-"),
+                    recentFilesMenu,
                     new("-"),
                     new(localization: "MainWindow.Menus.Exit", clickAction: (_) => { Close(); })
                 ]
@@ -107,14 +136,25 @@ namespace StoicGoose.GLWindow
                 SubItems =
                 [
                     new(localization: "MainWindow.Menus.Pause",
-                    clickAction: (_) => { isPaused = !isPaused; },
-                    updateAction: (s) => { s.IsEnabled = isRunning; s.IsChecked = isPaused; }),
+                    clickAction: (_) => { isPaused = !isPaused; if (isPaused) SaveCartridgeRam(); },
+                    updateAction: (s) => { s.IsEnabled = isRunning; s.IsChecked = isPaused; })
+                    { Shortcut = "Ctrl+P" },
                     new(localization: "MainWindow.Menus.Reset",
                     clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Reset(); } },
-                    updateAction: (s) => { s.IsEnabled = isRunning; }),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "Ctrl+R" },
+                    new("-"),
+                    new(localization: "MainWindow.Menus.SaveState",
+                    clickAction: (_) => SaveEmulatorState(),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "F5" },
+                    new(localization: "MainWindow.Menus.LoadState",
+                    clickAction: (_) => LoadEmulatorState(),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "F7" },
                     new("-"),
                     new(localization: "MainWindow.Menus.Shutdown",
-                    clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = "Machine shutdown."; isRunning = false; } },
+                    clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageShutdown"); isRunning = false; } },
                     updateAction: (s) => { s.IsEnabled = isRunning; })
                 ]
             };
@@ -174,7 +214,7 @@ namespace StoicGoose.GLWindow
                     {
                         SubItems = [.. Localizer.GetSupportedLanguages().Select(x =>
                             new MenuItem(label: x.NativeName,
-                            clickAction: (_) => { Thread.CurrentThread.CurrentUICulture = new(Program.Configuration.Language = x.TwoLetterISOLanguageName); LocalizeUI(); },
+                            clickAction: (_) => { Thread.CurrentThread.CurrentUICulture = new(Program.Configuration.Language = x.TwoLetterISOLanguageName); LocalizeUI(true); },
                             updateAction: (s) => { s.IsChecked = Program.Configuration.Language == x.TwoLetterISOLanguageName; })
                         )]
                     },
@@ -192,12 +232,27 @@ namespace StoicGoose.GLWindow
                         ]
                     },
                     new("-"),
+                    new(localization: "MainWindow.Menus.ScreenSize")
+                    {
+                        SubItems = [.. Enumerable.Range(1, maxScreenSizeFactor).Select(scale =>
+                            new MenuItem(label: $"{scale}x",
+                            clickAction: (_) => { displayWindow.WindowScale = Program.Configuration.DisplaySize = scale; },
+                            updateAction: (s) => { s.IsChecked = displayWindow.WindowScale == scale; }))
+                        ]
+                    },
+                    new(localization: "MainWindow.Menus.RotateScreen",
+                    clickAction: (_) => { isVerticalOrientation = !isVerticalOrientation; inputHandler?.SetVerticalOrientation(isVerticalOrientation); },
+                    updateAction: (s) => { s.IsChecked = isVerticalOrientation; s.IsEnabled = isRunning; }),
+                    new("-"),
                     new(localization: "MainWindow.Menus.LimitFPS",
                     clickAction: (_) => { Program.Configuration.LimitFps = !Program.Configuration.LimitFps; },
                     updateAction: (s) => { s.IsChecked = Program.Configuration.LimitFps; }),
                     new(localization: "MainWindow.Menus.Mute",
                     clickAction: (_) => { soundHandler.SetMute(Program.Configuration.Mute = !Program.Configuration.Mute); },
                     updateAction: (s) => { s.IsChecked = Program.Configuration.Mute; }),
+                    new(localization: "MainWindow.Menus.LowPassFilter",
+                    clickAction: (_) => { soundHandler.SetLowPassFilter(Program.Configuration.LowPassFilter = !Program.Configuration.LowPassFilter); },
+                    updateAction: (s) => { s.IsChecked = Program.Configuration.LowPassFilter; }),
                     new("-"),
                     new(localization: "MainWindow.Menus.UseBootstrapROMs",
                     clickAction: (_) => { Program.Configuration.UseBootstrap = !Program.Configuration.UseBootstrap; reinitMachineIfRunning(); },
@@ -223,7 +278,12 @@ namespace StoicGoose.GLWindow
                     clickAction: (_) => { ApplyMachineBreakpointHandlers(Program.Configuration.EnableBreakpoints = !Program.Configuration.EnableBreakpoints); },
                     updateAction: (s) => { s.IsChecked = Program.Configuration.EnableBreakpoints; }),
                     new(localization: "MainWindow.Menus.EnableMemoryPatches",
-                    clickAction: (_) => { ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks = !Program.Configuration.EnablePatchCallbacks); },
+                    clickAction: (_) =>
+                    {
+                        Program.Configuration.EnablePatchCallbacks = !Program.Configuration.EnablePatchCallbacks;
+                        Program.Configuration.EnableCheats = Program.Configuration.EnablePatchCallbacks;
+                        ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks);
+                    },
                     updateAction: (s) => { s.IsChecked = Program.Configuration.EnablePatchCallbacks; }),
                     new("-"),
                     new(localization: "MainWindow.Menus.EnableAutoRemap",
@@ -235,10 +295,38 @@ namespace StoicGoose.GLWindow
                 ]
             };
 
+            cheatsMenu = new(localization: "MainWindow.Menus.Cheats")
+            {
+                SubItems =
+                [
+                    new(localization: "MainWindow.Menus.EnableCheats",
+                    clickAction: (_) =>
+                    {
+                        Program.Configuration.EnableCheats = !Program.Configuration.EnableCheats;
+                        Program.Configuration.EnablePatchCallbacks = Program.Configuration.EnableCheats;
+                        ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks);
+                    },
+                    updateAction: (s) => { s.IsChecked = Program.Configuration.EnableCheats; }),
+                    new("-"),
+                    new(localization: "MainWindow.Menus.CheatList",
+                    clickAction: (_) => { memoryPatchWindow.IsWindowOpen = !memoryPatchWindow.IsWindowOpen; },
+                    updateAction: (s) => { s.IsChecked = memoryPatchWindow.IsWindowOpen; s.IsEnabled = isRunning; })
+                ]
+            };
+
             helpMenu = new(localization: "MainWindow.Menus.Help")
             {
                 SubItems =
                 [
+                    new(localization: "MainWindow.Menus.OpenDataFolder", clickAction: (_) =>
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = $"{Program.DataPath.TrimEnd(Path.DirectorySeparatorChar)}{Path.DirectorySeparatorChar}",
+                            UseShellExecute = true
+                        });
+                    }),
+                    new("-"),
                     new(localization: "MainWindow.Menus.About", clickAction: (_) => { aboutMessageBox.IsOpen = true; })
                 ]
             };
@@ -250,24 +338,36 @@ namespace StoicGoose.GLWindow
                 "\r\n" +
                 $"{Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright}\r\n" +
                 $"{ThisAssembly.Git.RepositoryUrl}",
-                "Okay");
+                "OK");
 
-            breakpointHitMessageBox = new("Breakpoint Hit", string.Empty, "Okay");
+            breakpointHitMessageBox = new("Breakpoint Hit", string.Empty, "OK");
 
             statusMessageItem = new() { ShowSeparator = false };
             statusRunningItem = new() { Width = 100f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
-            statusFpsItem = new() { Width = 75f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
+            statusFpsItem = new() { Width = 90f, ItemAlignment = StatusBarItemAlign.Right, TextAlignment = StatusBarItemTextAlign.Center };
 
             openRomDialog = new(ImGuiFileDialogType.Open)
             {
                 Callback = (res, fn) =>
                 {
-                    if (res == ImGuiFileDialogResult.Okay)
+                    if (res == ImGuiFileDialogResult.Okay && !string.IsNullOrEmpty(fn))
                         LoadAndRunCartridge(fn);
                 }
             };
 
             selectBootstrapRomDialog = new(ImGuiFileDialogType.Open);
+
+            saveWavDialog = new(ImGuiFileDialogType.Save)
+            {
+                Callback = (res, fn) =>
+                {
+                    if (res == ImGuiFileDialogResult.Okay && !string.IsNullOrEmpty(fn))
+                    {
+                        wavRecorderWindow.OutputPath = fn;
+                        wavRecorderWindow.IsWindowOpen = true;
+                    }
+                }
+            };
 
             backgroundGoose = new()
             {
@@ -278,15 +378,62 @@ namespace StoicGoose.GLWindow
                 Alpha = 32
             };
 
-            menuHandler = new(fileMenu, emulationMenu, windowsMenu, optionsMenu, helpMenu);
+            menuHandler = new(fileMenu, emulationMenu, windowsMenu, optionsMenu, cheatsMenu, helpMenu);
             messageBoxHandler = new(aboutMessageBox, breakpointHitMessageBox);
             statusBarHandler = new();
-            fileDialogHandler = new(openRomDialog, selectBootstrapRomDialog);
+            fileDialogHandler = new(openRomDialog, selectBootstrapRomDialog, saveWavDialog);
 
             Log.WriteEvent(LogSeverity.Information, this, "User interface initialized.");
         }
 
-        private void LocalizeUI()
+        private void RebuildRecentFilesMenu()
+        {
+            var items = new List<MenuItem>
+            {
+                new(localization: "MainWindow.Menus.ClearRecent",
+                    clickAction: (_) =>
+                    {
+                        Program.Configuration.RecentFiles.Clear();
+                        RebuildRecentFilesMenu();
+                        LocalizeUI();
+                    },
+                    updateAction: (s) => { s.IsEnabled = Program.Configuration.RecentFiles.Count != 0; }),
+                new("-")
+            };
+
+            if (Program.Configuration.RecentFiles.Count == 0)
+                items.Add(new(label: "-") { IsEnabled = false });
+            else
+            {
+                foreach (var file in Program.Configuration.RecentFiles)
+                {
+                    var filename = file;
+                    items.Add(new(label: filename, clickAction: (_) => LoadAndRunCartridge(filename)));
+                }
+            }
+
+            recentFilesMenu.SubItems = [.. items];
+            recentFilesMenu.Label = Localizer.GetString(recentFilesMenu.Localization);
+            foreach (var item in recentFilesMenu.SubItems.Where(x => !string.IsNullOrEmpty(x.Localization)))
+                item.Label = Localizer.GetString(item.Localization);
+        }
+
+        private static void AddToRecentFiles(string filename)
+        {
+            if (Program.Configuration.RecentFiles.Contains(filename))
+            {
+                Program.Configuration.RecentFiles.Remove(filename);
+                Program.Configuration.RecentFiles.Insert(0, filename);
+            }
+            else
+            {
+                Program.Configuration.RecentFiles.Insert(0, filename);
+                if (Program.Configuration.RecentFiles.Count > maxRecentFiles)
+                    Program.Configuration.RecentFiles.RemoveAt(Program.Configuration.RecentFiles.Count - 1);
+            }
+        }
+
+        private void LocalizeUI(bool announceLanguageChange = false)
         {
             static void localizeMenus(params MenuItem[] menuItems)
             {
@@ -297,9 +444,15 @@ namespace StoicGoose.GLWindow
                 }
             }
 
-            localizeMenus(fileMenu, emulationMenu, windowsMenu, optionsMenu, helpMenu);
+            localizeMenus(fileMenu, emulationMenu, windowsMenu, optionsMenu, cheatsMenu, helpMenu);
 
-            statusMessageItem.Label = Localizer.GetString("MainWindow.LanguageChanged", new { Language = Thread.CurrentThread.CurrentUICulture.NativeName });
+            if (announceLanguageChange)
+                statusMessageItem.Label = Localizer.GetString("MainWindow.LanguageChanged", new { Language = Thread.CurrentThread.CurrentUICulture.NativeName });
+
+            aboutMessageBox.Title = Localizer.GetString("MainWindow.AboutTitle");
+            aboutMessageBox.Buttons = [Localizer.GetString("MainWindow.OkayButton")];
+            breakpointHitMessageBox.Title = Localizer.GetString("MainWindow.BreakpointHitTitle");
+            breakpointHitMessageBox.Buttons = [Localizer.GetString("MainWindow.OkayButton")];
 
             openRomDialog.Title = Localizer.GetString("MainWindow.Dialogs.OpenROMTitle");
             openRomDialog.Filter = Localizer.GetString("MainWindow.Dialogs.ROMFilter");
@@ -307,7 +460,11 @@ namespace StoicGoose.GLWindow
             selectBootstrapRomDialog.Title = Localizer.GetString("MainWindow.Dialogs.SelectBootstrapROMTitle");
             selectBootstrapRomDialog.Filter = Localizer.GetString("MainWindow.Dialogs.ROMFilter");
 
+            saveWavDialog.Title = Localizer.GetString("MainWindow.Dialogs.SaveWAVTitle");
+            saveWavDialog.Filter = Localizer.GetString("MainWindow.Dialogs.WAVFilter");
+
             FileDialogHandler.OpenButtonLabel = Localizer.GetString("FileDialogHandler.OpenButton");
+            FileDialogHandler.SaveButtonLabel = Localizer.GetString("FileDialogHandler.SaveButton");
             FileDialogHandler.CancelButtonLabel = Localizer.GetString("FileDialogHandler.CancelButton");
 
             Log.WriteEvent(LogSeverity.Information, this, $"UI localization to {Thread.CurrentThread.CurrentUICulture.DisplayName} applied.");

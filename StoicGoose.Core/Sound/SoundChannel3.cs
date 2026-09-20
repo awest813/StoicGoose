@@ -50,6 +50,40 @@
             SweepTime = 0;
         }
 
+        public void ExportState(System.IO.BinaryWriter writer)
+        {
+            writer.Write(counter);
+            writer.Write(pointer);
+            writer.Write(OutputLeft);
+            writer.Write(OutputRight);
+            writer.Write(sweepCounter);
+            writer.Write(sweepCycles);
+            writer.Write(Pitch);
+            writer.Write(VolumeLeft);
+            writer.Write(VolumeRight);
+            writer.Write(IsEnabled);
+            writer.Write(IsSweepEnabled);
+            writer.Write(SweepValue);
+            writer.Write(SweepTime);
+        }
+
+        public void ImportState(System.IO.BinaryReader reader)
+        {
+            counter = reader.ReadUInt16();
+            pointer = reader.ReadByte();
+            OutputLeft = reader.ReadByte();
+            OutputRight = reader.ReadByte();
+            sweepCounter = reader.ReadInt32();
+            sweepCycles = reader.ReadInt32();
+            Pitch = reader.ReadUInt16();
+            VolumeLeft = reader.ReadByte();
+            VolumeRight = reader.ReadByte();
+            IsEnabled = reader.ReadBoolean();
+            IsSweepEnabled = reader.ReadBoolean();
+            SweepValue = reader.ReadSByte();
+            SweepTime = reader.ReadByte();
+        }
+
         public void Step()
         {
             if (IsSweepEnabled)

@@ -11,6 +11,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
     public class FileDialogHandler
     {
         public static string OpenButtonLabel { get; set; }
+        public static string SaveButtonLabel { get; set; }
         public static string CancelButtonLabel { get; set; }
 
         readonly List<FileDialog> fileDialogs = [];
@@ -30,6 +31,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
         int selectedFileDir = -1;
 
         string selectedFilePath = string.Empty;
+        string saveFilename = string.Empty;
 
         public bool IsAnyDialogOpen => fileDialogs.Any(x => x.IsOpen);
 
@@ -58,7 +60,10 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     if (selectedFileDir == -1) return;
 
                     if (!currentFileDirList[selectedFileDir].isDirectory)
+                    {
                         selectedFilePath = currentFiles[currentFileDirList[selectedFileDir].index].FullName;
+                        saveFilename = Path.GetFileName(selectedFilePath);
+                    }
                 }
                 ;
 
@@ -95,6 +100,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
                 {
                     UpdateCurrentFilesAndDirs(!string.IsNullOrEmpty(fileDialogs[i].InitialDirectory) ? new(fileDialogs[i].InitialDirectory) : driveInfos[selectedDriveInfo].RootDirectory);
                     selectFile(currentFileDirList.FindIndex(x => x.label == fileDialogs[i].InitialFilename));
+                    if (!string.IsNullOrEmpty(fileDialogs[i].InitialFilename))
+                        saveFilename = Path.GetFileName(fileDialogs[i].InitialFilename);
                 }
 
                 var viewportCenter = ImGui.GetMainViewport().GetCenter();
@@ -133,11 +140,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
                             if (workingDirectory.Parent != null)
                             {
                                 ImGui.PushStyleColor(ImGuiCol.Text, 0xFF00E0FF);
-                                if (ImGui.Selectable("[..]", isSelected, ImGuiSelectableFlags.AllowDoubleClick) &&
-                                    ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
-                                {
+                                if (ImGui.Selectable("[..]", isSelected))
                                     UpdateCurrentFilesAndDirs(workingDirectory.Parent);
-                                }
                                 ImGui.PopStyleColor();
                             }
                         }
@@ -171,7 +175,14 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
                     ImGui.Dummy(new NumericsVector2(0f, 3f));
 
-                    ImGui.Text(!string.IsNullOrEmpty(selectedFilePath) ? Path.GetFileName(selectedFilePath) : string.Empty);
+                    var isSave = fileDialogs[i].DialogType == ImGuiFileDialogType.Save;
+                    if (isSave)
+                    {
+                        ImGui.SetNextItemWidth(windowContentAvailWidth);
+                        ImGui.InputText("##save-filename", ref saveFilename, 260);
+                    }
+                    else
+                        ImGui.Text(!string.IsNullOrEmpty(selectedFilePath) ? Path.GetFileName(selectedFilePath) : string.Empty);
 
                     ImGui.Dummy(new NumericsVector2(0f, 3f));
 
@@ -184,25 +195,30 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     ImGui.Dummy(new NumericsVector2(0f, 2f));
 
                     var buttonWidth = (windowContentAvailWidth - ImGui.GetStyle().ItemSpacing.X) / 2f;
+                    var chosenPath = isSave
+                        ? (!string.IsNullOrWhiteSpace(saveFilename)
+                            ? (Path.IsPathRooted(saveFilename) ? saveFilename : Path.Combine(workingDirectory.FullName, saveFilename))
+                            : string.Empty)
+                        : selectedFilePath;
+                    var canOpen = !string.IsNullOrEmpty(chosenPath);
+                    var confirmLabel = isSave ? (SaveButtonLabel ?? "Save") : (OpenButtonLabel ?? "Open");
 
-                    if (ImGui.Button(OpenButtonLabel, new NumericsVector2(buttonWidth, 0f)) || readyToOpen)
+                    ImGui.BeginDisabled(!canOpen);
+                    if ((ImGui.Button(confirmLabel, new NumericsVector2(buttonWidth, 0f)) || readyToOpen) && canOpen)
                     {
                         ImGui.CloseCurrentPopup();
 
-                        fileDialogs[i].Callback?.Invoke(ImGuiFileDialogResult.Okay, selectedFilePath);
+                        fileDialogs[i].Callback?.Invoke(ImGuiFileDialogResult.Okay, chosenPath);
                         fileDialogs[i].IsOpen = false;
 
                         ResetHandlerState();
                     }
+                    ImGui.EndDisabled();
                     ImGui.SameLine();
-                    if (ImGui.Button(CancelButtonLabel, new NumericsVector2(buttonWidth, 0f)))
+                    if (ImGui.Button(CancelButtonLabel ?? "Cancel", new NumericsVector2(buttonWidth, 0f)) ||
+                        ImGui.IsKeyPressed(ImGuiKey.Escape))
                     {
-                        ImGui.CloseCurrentPopup();
-
-                        fileDialogs[i].Callback?.Invoke(ImGuiFileDialogResult.Cancel, string.Empty);
-                        fileDialogs[i].IsOpen = false;
-
-                        ResetHandlerState();
+                        DismissDialog(fileDialogs[i], ImGuiFileDialogResult.Cancel);
                     }
 
                     ImGui.PopStyleVar();
@@ -210,6 +226,10 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     ImGui.EndPopup();
 
                     fileDialogs[i].IsFirstOpen = false;
+                }
+                else if (!fileDialogs[i].IsOpen)
+                {
+                    DismissDialog(fileDialogs[i], ImGuiFileDialogResult.Cancel);
                 }
             }
         }
@@ -239,6 +259,17 @@ namespace StoicGoose.ImGuiCommon.Handlers
             selectedFilePath = string.Empty;
         }
 
+        private void DismissDialog(FileDialog dialog, ImGuiFileDialogResult result)
+        {
+            if (!dialog.IsOpen && result == ImGuiFileDialogResult.Cancel && workingDirectory == default)
+                return;
+
+            ImGui.CloseCurrentPopup();
+            dialog.Callback?.Invoke(result, result == ImGuiFileDialogResult.Okay ? selectedFilePath : string.Empty);
+            dialog.IsOpen = false;
+            ResetHandlerState();
+        }
+
         private void ResetHandlerState()
         {
             selectedDriveInfo = -1;
@@ -254,6 +285,7 @@ namespace StoicGoose.ImGuiCommon.Handlers
             selectedFileDir = -1;
 
             selectedFilePath = string.Empty;
+            saveFilename = string.Empty;
         }
     }
 

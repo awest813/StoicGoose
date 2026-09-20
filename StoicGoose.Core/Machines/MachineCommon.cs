@@ -5,10 +5,12 @@ using StoicGoose.Core.CPU;
 using StoicGoose.Core.Display;
 using StoicGoose.Core.EEPROMs;
 using StoicGoose.Core.Interfaces;
+using StoicGoose.Core.SaveStates;
 using StoicGoose.Core.Serial;
 using StoicGoose.Core.Sound;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Machines
@@ -29,6 +31,8 @@ namespace StoicGoose.Core.Machines
 
         public abstract string InternalEepromDefaultUsername { get; }
         public abstract Dictionary<ushort, byte> InternalEepromDefaultData { get; }
+
+        public virtual bool IsSphinxCpu => isWSCOrGreater;
 
         public const double MasterClock = 12288000.0; /* 12.288 MHz xtal */
         public const double CpuClock = MasterClock / 4.0; /* /4 = 3.072 MHz */
@@ -60,6 +64,7 @@ namespace StoicGoose.Core.Machines
         public Func<bool> RunStepCallback { get; set; } = default;
 
         protected bool cancelFrameExecution = false;
+        public bool IsPoweredOff { get; private set; }
 
         public int CurrentClockCyclesInLine { get; protected set; } = 0;
         public int CurrentClockCyclesInFrame { get; protected set; } = 0;
@@ -110,6 +115,8 @@ namespace StoicGoose.Core.Machines
 
             ResetRegisters();
 
+            IsPoweredOff = false;
+
             Log.WriteEvent(LogSeverity.Information, this, "Machine reset.");
         }
 
@@ -142,6 +149,17 @@ namespace StoicGoose.Core.Machines
             var data = ConvertUsernameForEeprom(InternalEepromDefaultUsername);
             for (var i = 0; i < data.Length; i++) InternalEeprom.Program(0x60 + i, data[i]); // Username (0x60-0x6F, max 16 characters)
             foreach (var (address, value) in InternalEepromDefaultData) InternalEeprom.Program(address, value);
+            AssignSwanIdIfUnset();
+        }
+
+        protected void AssignSwanIdIfUnset()
+        {
+            var contents = InternalEeprom.GetContents();
+            if (contents[0x7A] != 0 || contents[0x7B] != 0) return;
+
+            var swanId = Random.Shared.Next(1, 0x10000);
+            InternalEeprom.Program(0x7A, (byte)(swanId & 0xFF));
+            InternalEeprom.Program(0x7B, (byte)(swanId >> 8));
         }
 
         private static byte[] ConvertUsernameForEeprom(string name)
@@ -205,6 +223,13 @@ namespace StoicGoose.Core.Machines
             ChangeBit(ref interruptStatus, number, false);
         }
 
+        protected void PowerOff()
+        {
+            IsPoweredOff = true;
+            Cpu.IsHalted = true;
+            cancelFrameExecution = true;
+        }
+
         protected void HandleInterrupts()
         {
             if (!Cpu.IsFlagSet(V30MZ.Flags.InterruptEnable)) return;
@@ -229,6 +254,7 @@ namespace StoicGoose.Core.Machines
         public void LoadInternalEeprom(byte[] data)
         {
             InternalEeprom.LoadContents(data);
+            AssignSwanIdIfUnset();
         }
 
         public void LoadRom(byte[] data)
@@ -243,6 +269,10 @@ namespace StoicGoose.Core.Machines
             else if (Cartridge.Metadata.IsEepromSave)
                 Cartridge.LoadEeprom(data);
         }
+
+        public void LoadRtcState(byte[] data) => Cartridge.LoadRtcState(data);
+
+        public bool HasRtcSave => Cartridge.HasRtc;
 
         public byte[] GetInternalEeprom()
         {
@@ -260,6 +290,104 @@ namespace StoicGoose.Core.Machines
             }
 
             return [];
+        }
+
+        public byte[] GetRtcState() => Cartridge.GetRtcState() ?? [];
+
+        public byte[] GetSaveState()
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, true))
+            {
+                SaveStateIO.WriteHeader(writer, GetType().FullName, Cartridge?.Crc32 ?? 0);
+                ExportState(writer);
+            }
+            return stream.ToArray();
+        }
+
+        public bool LoadSaveState(byte[] data)
+        {
+            if (data == null || data.Length == 0)
+                return false;
+
+            try
+            {
+                using var stream = new MemoryStream(data, false);
+                using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, false);
+                if (!SaveStateIO.TryReadHeader(reader, GetType().FullName, Cartridge?.Crc32 ?? 0))
+                    return false;
+
+                ImportState(reader);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save state: {ex.Message}");
+                return false;
+            }
+        }
+
+        protected virtual void ExportState(BinaryWriter writer)
+        {
+            writer.Write(CurrentClockCyclesInLine);
+            writer.Write(CurrentClockCyclesInFrame);
+            writer.Write(TotalClockCyclesInFrame);
+            writer.Write(IsPoweredOff);
+            writer.Write(cancelFrameExecution);
+            writer.Write(UseBootstrap);
+            writer.Write(cartEnable);
+            writer.Write(isWSCOrGreater);
+            writer.Write(is16BitExtBus);
+            writer.Write(cartRom1CycleSpeed);
+            writer.Write(builtInSelfTestOk);
+            writer.Write(keypadYEnable);
+            writer.Write(keypadXEnable);
+            writer.Write(keypadButtonEnable);
+            writer.Write(interruptBase);
+            writer.Write(interruptEnable);
+            writer.Write(interruptStatus);
+
+            SaveStateIO.WriteBytes(writer, InternalRam);
+            Cpu.ExportState(writer);
+            DisplayController.ExportState(writer);
+            SoundController.ExportState(writer);
+            InternalEeprom.ExportState(writer);
+            Serial.ExportState(writer);
+            Cartridge.ExportState(writer);
+        }
+
+        protected virtual void ImportState(BinaryReader reader)
+        {
+            CurrentClockCyclesInLine = reader.ReadInt32();
+            CurrentClockCyclesInFrame = reader.ReadInt32();
+            TotalClockCyclesInFrame = reader.ReadInt32();
+            IsPoweredOff = reader.ReadBoolean();
+            cancelFrameExecution = reader.ReadBoolean();
+            UseBootstrap = reader.ReadBoolean();
+            cartEnable = reader.ReadBoolean();
+            isWSCOrGreater = reader.ReadBoolean();
+            is16BitExtBus = reader.ReadBoolean();
+            cartRom1CycleSpeed = reader.ReadBoolean();
+            builtInSelfTestOk = reader.ReadBoolean();
+            keypadYEnable = reader.ReadBoolean();
+            keypadXEnable = reader.ReadBoolean();
+            keypadButtonEnable = reader.ReadBoolean();
+            interruptBase = reader.ReadByte();
+            interruptEnable = reader.ReadByte();
+            interruptStatus = reader.ReadByte();
+
+            var ram = SaveStateIO.ReadBytes(reader);
+            if (InternalRam != null && ram.Length != 0)
+                Buffer.BlockCopy(ram, 0, InternalRam, 0, Math.Min(ram.Length, InternalRam.Length));
+
+            Cpu.ImportState(reader);
+            DisplayController.ImportState(reader);
+            SoundController.ImportState(reader);
+            InternalEeprom.ImportState(reader);
+            Serial.ImportState(reader);
+            Cartridge.ImportState(reader);
+
+            Cpu.IsHalted = IsPoweredOff || Cpu.IsHalted;
         }
 
         public byte ReadMemory(uint address)

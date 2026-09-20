@@ -45,8 +45,7 @@
                     break;
 
                 case 0xF0:
-                    /* LOCK */
-                    //TODO: implement??
+                    /* LOCK -- no bus locking on V30MZ; consumed as prefix */
                     isOpcode = false;
                     break;
 
