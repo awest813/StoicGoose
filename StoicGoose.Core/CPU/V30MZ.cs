@@ -4,8 +4,6 @@ namespace StoicGoose.Core.CPU
 {
     public sealed partial class V30MZ : IComponent
     {
-        // TODO: attempt prefetch emulation (Meitantei Conan - Nishi no Meitantei Saidai no Kiki; cart changes banks on startup, can no longer execute jump, execs garbage)
-
         /* Parent machine instance */
         readonly IMachine machine = default;
 
@@ -69,6 +67,7 @@ namespace StoicGoose.Core.CPU
             halted = false;
             opCycles = intCycles = 0;
 
+            InvalidatePrefetch();
             ResetPrefixes();
             modRm.Reset();
         }
@@ -103,6 +102,7 @@ namespace StoicGoose.Core.CPU
             /* Continue with interrupt handler */
             cs = segment;
             ip = offset;
+            InvalidatePrefetch();
         }
 
         public int Step()
@@ -118,7 +118,7 @@ namespace StoicGoose.Core.CPU
             {
                 /* Read any prefixes & opcode */
                 byte opcode;
-                while (!HandlePrefixes(opcode = ReadMemory8(cs, ip++))) { }
+                while (!HandlePrefixes(opcode = FetchByte())) { }
 
                 /* Execute instruction */
                 opCycles = instructions[opcode](this);

@@ -6,7 +6,7 @@
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/xdanieldzd/StoicGoose/build.yml)
 ![GitHub](https://img.shields.io/github/license/xdanieldzd/StoicGoose)
 
-StoicGoose is a work-in-progress Bandai WonderSwan and WonderSwan Color emulator. It is written in C# via Visual Studio Community 2022 under Windows 10 Pro 21H2, and uses .NET 6.0 along with the following NuGet packages:
+StoicGoose is a work-in-progress Bandai WonderSwan and WonderSwan Color emulator. It is written in C# via Visual Studio Community 2022 and uses .NET 9.0 along with the following NuGet packages:
 
 * [OpenTK](https://www.nuget.org/packages/OpenTK) 4.8.0 (for OpenGL rendering, OpenAL sound, etc.)
 * [OpenTK.WinForms](https://www.nuget.org/packages/OpenTK.WinForms) 4.0.0-pre.6 (for WinForms OpenGL control)
@@ -15,7 +15,7 @@ StoicGoose is a work-in-progress Bandai WonderSwan and WonderSwan Color emulator
 * [GitInfo](https://www.nuget.org/packages/GitInfo) 2.3.0 (for versioning information)
 * [ImGui.NET](https://www.nuget.org/packages/ImGui.NET) 1.89.7.1 (for debugger UI)
 * [Iced](https://www.nuget.org/packages/Iced) 1.20.0 (for x86 disassembly)
-* [Microsoft.CodeAnalysis.CSharp.Scripting](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp.Scripting) 4.5.0 (for breakpoint support)
+* [Microsoft.CodeAnalysis.CSharp.Scripting](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp.Scripting) 4.7.0 (for breakpoint support)
 * [Serilog](https://www.nuget.org/packages/Serilog) 3.0.1, [Serilog.Sinks.File](https://www.nuget.org/packages/Serilog.Sinks.File) 5.0.0 and [Serilog.Sinks.Console](https://www.nuget.org/packages/Serilog.Sinks.Console) 4.1.0 (for error and general message logging)
 
 ## Versions
@@ -26,7 +26,7 @@ Two flavors of StoicGoose are available:
 
 ## Requirements
 
-* [.NET 6.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/6.0/runtime)
+* [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/9.0/runtime)
 * A GPU supporting OpenGL 4.0 (ex. Nvidia GeForce 400 series or later, Radeon HD 5000 series or later, Intel Ivy Bridge iGPUs or later) _and_ appropriate drivers
 * Optionally, copies of the WonderSwan and WonderSwan Color bootstrap ROMs (supported but not required); correct MD5 hashes are as follows
   * 54b915694731cc22e07d3fb8a00ee2db (WonderSwan)
@@ -56,14 +56,14 @@ To create and run a Debug build:
 ```
 $ cd StoicGoose/StoicGoose.GLWindow/
 $ dotnet build
-$ dotnet bin/Debug/net6.0/StoicGoose.GLWindow.dll
+$ dotnet bin/Debug/net9.0/StoicGoose.GLWindow.dll
 ```
 
 To create and run a Release build:
 ```
 $ cd StoicGoose/StoicGoose.GLWindow/
 $ dotnet build -c Release
-$ dotnet bin/Release/net6.0/StoicGoose.GLWindow.dll
+$ dotnet bin/Release/net9.0/StoicGoose.GLWindow.dll
 ```
 
 ## Screenshots

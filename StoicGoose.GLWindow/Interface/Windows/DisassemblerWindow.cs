@@ -299,8 +299,6 @@ namespace StoicGoose.GLWindow.Interface.Windows
                 ImGui.Separator();
                 ImGui.Dummy(new(0f, 2f));
 
-                // TODO: clean up controls and cpu status stuffs
-
                 if (ImGui.BeginChild("##controls", new(0f, controlsHeight)))
                 {
                     if (!isRunning) ImGui.BeginDisabled();
@@ -334,7 +332,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         ImGui.BeginDisabled();
                         ImGui.Button("Jump to IP", new(buttonWidth, 0f));
                         ImGui.SameLine();
-                        ImGui.Text("Code jump: ");
+                        ImGui.Text("Code jump:");
                         ImGui.SameLine();
                         ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags);
                         ImGui.EndDisabled();
@@ -343,15 +341,16 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     {
                         if (ImGui.Button("Jump to IP", new(buttonWidth, 0f))) jumpToIpNext = true;
                         ImGui.SameLine();
-                        ImGui.Text("Code jump: ");
+                        ImGui.Text("Code jump:");
                         ImGui.SameLine();
-                        if (ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags))
-                            disasmGotoAddr = int.Parse(disasmAddrInputBuf, NumberStyles.HexNumber);
+                        if (ImGui.InputText("##disasm-addr", ref disasmAddrInputBuf, 4, gotoInputFlags) &&
+                            int.TryParse(disasmAddrInputBuf, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsedDisasmAddr))
+                            disasmGotoAddr = parsedDisasmAddr;
                     }
 
                     if (ImGui.Button("Reset", new(buttonWidth, 0f))) machine.Reset();
                     ImGui.SameLine();
-                    if (ImGui.Button("Reset -> Pause", new(buttonWidth, 0f))) { OnPauseEmulation(EventArgs.Empty); machine.Reset(); }
+                    if (ImGui.Button("Reset & Pause", new(buttonWidth, 0f))) { OnPauseEmulation(EventArgs.Empty); machine.Reset(); }
                     ImGui.SameLine();
                     if (traceExecution)
                     {
@@ -369,8 +368,9 @@ namespace StoicGoose.GLWindow.Interface.Windows
                         ImGui.SameLine();
                         ImGui.Text("Stack jump:");
                         ImGui.SameLine();
-                        if (ImGui.InputText("##stack-addr", ref stackAddrInputBuf, 4, gotoInputFlags))
-                            stackGotoAddr = int.Parse(stackAddrInputBuf, NumberStyles.HexNumber);
+                        if (ImGui.InputText("##stack-addr", ref stackAddrInputBuf, 4, gotoInputFlags) &&
+                            int.TryParse(stackAddrInputBuf, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsedStackAddr))
+                            stackGotoAddr = parsedStackAddr;
                     }
 
                     ImGui.Checkbox("Trace execution", ref traceExecution);
@@ -410,8 +410,6 @@ namespace StoicGoose.GLWindow.Interface.Windows
 
                 if (ImGui.BeginChild("##processor", NumericsVector2.Zero))
                 {
-                    // TODO: better layout?
-
                     var drawListProcessor = ImGui.GetWindowDrawList();
 
                     var height = ImGui.GetTextLineHeightWithSpacing();
@@ -449,7 +447,8 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     pos.Y = posStart.Y;
 
                     pos.X = windowPos.X + glyphSize.X * 49f;
-                    drawListProcessor.AddText(pos, colorText, $"CPU Halted? {machine.Cpu.IsHalted}"); pos.X += glyphSize.X * 25f;
+                    drawListProcessor.AddText(pos, colorText, $"CPU Halted? {machine.Cpu.IsHalted}"); pos.X += glyphSize.X * 16f;
+                    drawListProcessor.AddText(pos, machine.IsPoweredOff ? colorText : colorDisabled, $"Powered Off: {machine.IsPoweredOff}"); pos.X += glyphSize.X * 20f;
                     drawListProcessor.AddText(pos, colorText, $"Scanline: {machine.DisplayController.LineCurrent,3}");
                     pos.Y += height + lineHeight * 0.75f;
 
@@ -480,7 +479,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     ImGui.EndChild();
                 }
 
-                ImGui.End();
+                EndWindow();
             }
         }
 

@@ -1,7 +1,9 @@
 using StoicGoose.Common.Extensions;
+using StoicGoose.Common.Localization;
 using StoicGoose.Common.Utilities;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -29,9 +31,11 @@ namespace StoicGoose.WinForms
 
         readonly static FileVersionInfo assemblyVersionInfo = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
 
-        readonly static string mutexName = $"{Application.ProductName}_{GetVersionDetails()}";
+        static string ProductName => string.IsNullOrWhiteSpace(Application.ProductName) ? "StoicGoose" : Application.ProductName;
 
-        readonly static string programDataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), Application.ProductName);
+        readonly static string mutexName = ApplicationPaths.SanitizeMutexName($"{ProductName}_{GetVersionDetails()}");
+
+        readonly static string programDataDirectory = ApplicationPaths.GetDataDirectory(ProductName);
         readonly static string programConfigPath = Path.Combine(programDataDirectory, jsonConfigFileName);
 
         public static Configuration Configuration { get; private set; } = LoadConfiguration(programConfigPath);
@@ -54,7 +58,14 @@ namespace StoicGoose.WinForms
         {
             try
             {
-                Thread.CurrentThread.CurrentCulture = Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+                Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
+                Localizer.Initialize(Resources.GetEmbeddedText("Assets.Localization.json"));
+
+                if (string.IsNullOrEmpty(Configuration.General.Language))
+                    Configuration.General.Language = Localizer.FallbackCulture;
+
+                Thread.CurrentThread.CurrentUICulture = new CultureInfo(Configuration.General.Language);
 
                 Log.Initialize(Path.Combine(programDataDirectory, logFileName));
 

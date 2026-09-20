@@ -48,6 +48,40 @@
             NoiseLfsr = 0;
         }
 
+        public void ExportState(System.IO.BinaryWriter writer)
+        {
+            writer.Write(counter);
+            writer.Write(pointer);
+            writer.Write(OutputLeft);
+            writer.Write(OutputRight);
+            writer.Write(Pitch);
+            writer.Write(VolumeLeft);
+            writer.Write(VolumeRight);
+            writer.Write(IsEnabled);
+            writer.Write(IsNoiseEnabled);
+            writer.Write(NoiseMode);
+            writer.Write(NoiseReset);
+            writer.Write(NoiseEnable);
+            writer.Write(NoiseLfsr);
+        }
+
+        public void ImportState(System.IO.BinaryReader reader)
+        {
+            counter = reader.ReadUInt16();
+            pointer = reader.ReadByte();
+            OutputLeft = reader.ReadByte();
+            OutputRight = reader.ReadByte();
+            Pitch = reader.ReadUInt16();
+            VolumeLeft = reader.ReadByte();
+            VolumeRight = reader.ReadByte();
+            IsEnabled = reader.ReadBoolean();
+            IsNoiseEnabled = reader.ReadBoolean();
+            NoiseMode = reader.ReadByte();
+            NoiseReset = reader.ReadBoolean();
+            NoiseEnable = reader.ReadBoolean();
+            NoiseLfsr = reader.ReadUInt16();
+        }
+
         public void Step()
         {
             counter--;

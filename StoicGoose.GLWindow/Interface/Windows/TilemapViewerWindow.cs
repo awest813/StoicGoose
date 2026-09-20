@@ -149,7 +149,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     ImGui.EndChild();
                 }
 
-                ImGui.End();
+                EndWindow();
             }
         }
 

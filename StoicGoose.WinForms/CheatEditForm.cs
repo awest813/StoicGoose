@@ -13,7 +13,7 @@ namespace StoicGoose.WinForms
             { CheatCondition.Always, "^ (always)" },
             { CheatCondition.LessThan, "< (less than)" },
             { CheatCondition.LessThanOrEqual, "<= (less or equal)" },
-            { CheatCondition.GreaterThanOrEqual, "=> (greater or equal)" },
+            { CheatCondition.GreaterThanOrEqual, ">= (greater or equal)" },
             { CheatCondition.GreaterThan, "> (greater than)" },
         };
 

@@ -78,6 +78,8 @@ namespace StoicGoose.ImGuiCommon.Handlers
 
                     ImGui.EndMenuBar();
                 }
+
+                ImGui.End();
             }
         }
     }

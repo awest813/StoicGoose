@@ -503,7 +503,7 @@ namespace StoicGoose.Core.CPU
             SetClearFlagConditional(Flags.Carry, signed ? result != resultTrunctated : (result >> 8) != 0);
             ClearFlags(Flags.Parity);
             ClearFlags(Flags.Auxiliary);
-            SetClearFlagConditional(Flags.Zero, true);  // TODO: cleared on ASWAN (WS), set on SPHINX (WSC/SC)
+            SetClearFlagConditional(Flags.Zero, machine.IsSphinxCpu);
             ClearFlags(Flags.Sign);
             SetClearFlagConditional(Flags.Overflow, signed ? result != resultTrunctated : (result >> 8) != 0);
 
@@ -521,7 +521,7 @@ namespace StoicGoose.Core.CPU
             SetClearFlagConditional(Flags.Carry, signed ? result != resultTrunctated : (result >> 16) != 0);
             ClearFlags(Flags.Parity);
             ClearFlags(Flags.Auxiliary);
-            SetClearFlagConditional(Flags.Zero, true);  // TODO: cleared on ASWAN (WS), set on SPHINX (WSC/SC)
+            SetClearFlagConditional(Flags.Zero, machine.IsSphinxCpu);
             ClearFlags(Flags.Sign);
             SetClearFlagConditional(Flags.Overflow, signed ? result != resultTrunctated : (result >> 16) != 0);
 
@@ -529,8 +529,6 @@ namespace StoicGoose.Core.CPU
 
             return result;
         }
-
-        // TODO: cleanup Div8 & Div16
 
         private ushort Div8(bool signed, ushort a, byte b)
         {

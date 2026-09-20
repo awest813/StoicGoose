@@ -2,6 +2,8 @@
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using StoicGoose.Common.Extensions;
+using StoicGoose.Common.IO;
+using StoicGoose.Common.Localization;
 using StoicGoose.Common.OpenGL;
 using StoicGoose.Common.Utilities;
 using StoicGoose.Core.Display;
@@ -12,13 +14,13 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Forms;
 using CartridgeMetadata = StoicGoose.Core.Cartridges.Metadata;
 
@@ -31,11 +33,11 @@ namespace StoicGoose.WinForms
         readonly static int maxRecentFiles = 15;
         readonly static int statusIconSize = 12;
 
-        readonly static List<(string description, string extension, Func<string, Stream> streamReadFunc)> supportedFileInformation =
+        readonly static List<(string description, string extension)> supportedFileInformation =
         [
-            ("WonderSwan ROMs", ".ws", GetStreamFromFile),
-            ("WonderSwan Color ROMs", ".wsc", GetStreamFromFile),
-            ("Zip Archives", ".zip", GetStreamFromFirstZippedFile)
+            ("WonderSwan ROMs", ".ws"),
+            ("WonderSwan Color ROMs", ".wsc"),
+            ("Zip Archives", ".zip")
         ];
 
         /* Various handlers */
@@ -101,6 +103,8 @@ namespace StoicGoose.WinForms
             CreateRecentFilesMenu();
             CreateScreenSizeMenu();
             CreateShaderMenu();
+            CreateLanguageMenu();
+            ApplyUiLanguage();
 
             SetFileFilters();
 
@@ -284,6 +288,16 @@ namespace StoicGoose.WinForms
 
                 if (emulatorHandler.Machine is MachineCommon machine)
                 {
+                    if (machine.IsPoweredOff)
+                    {
+                        tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessagePoweredOff");
+                        tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningStopped");
+                    }
+
+                    tsslFps.Text = emulatorHandler.IsRunning && !emulatorHandler.IsPaused
+                        ? $"{emulatorHandler.FramesPerSecond:0} fps"
+                        : "--";
+
                     var activeIcons = new List<string>() { "Power" };
 
                     if (machine.BuiltInSelfTestOk) activeIcons.Add("Initialized");
@@ -381,22 +395,102 @@ namespace StoicGoose.WinForms
                 statusStringBuilder.Append($"playing {databaseHandler.GetGameTitle(emulatorHandler.Machine.Cartridge.Crc32, emulatorHandler.Machine.Cartridge.SizeInBytes)} ({emulatorHandler.Machine.Cartridge.Metadata.GameIdString})");
 
                 tsslStatus.Text = statusStringBuilder.ToString();
-                tsslEmulationStatus.Text = emulatorHandler.IsRunning ? (emulatorHandler.IsPaused ? "Paused" : "Running") : "Stopped";
+                if (emulatorHandler.Machine.IsPoweredOff)
+                    tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningStopped");
+                else if (!emulatorHandler.IsRunning)
+                    tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningStopped");
+                else if (emulatorHandler.IsPaused)
+                    tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningPaused");
+                else
+                    tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningRunning");
             }
             else
             {
                 tsslStatus.Text = "Ready";
-                tsslEmulationStatus.Text = "Stopped";
+                tsslEmulationStatus.Text = Localizer.GetString("MainWindow.StatusRunningStopped");
             }
 
+            tsslFps.Text = emulatorHandler.IsRunning && !emulatorHandler.IsPaused
+                ? $"{emulatorHandler.FramesPerSecond:0} fps"
+                : "--";
+
             Text = titleStringBuilder.ToString();
+        }
+
+        private void CreateLanguageMenu()
+        {
+            var existing = optionsToolStripMenuItem.DropDownItems.OfType<ToolStripMenuItem>()
+                .FirstOrDefault(x => x.Name == "languageToolStripMenuItem");
+            if (existing != null)
+                optionsToolStripMenuItem.DropDownItems.Remove(existing);
+
+            var languageMenu = new ToolStripMenuItem(Localizer.GetString("MainWindow.Menus.Language"))
+            {
+                Name = "languageToolStripMenuItem"
+            };
+
+            foreach (var culture in Localizer.GetSupportedLanguages())
+            {
+                var item = new ToolStripMenuItem(culture.NativeName)
+                {
+                    Checked = Program.Configuration.General.Language == culture.TwoLetterISOLanguageName,
+                    Tag = culture.TwoLetterISOLanguageName
+                };
+                item.Click += (s, e) =>
+                {
+                    if ((s as ToolStripMenuItem)?.Tag is not string language) return;
+                    Program.Configuration.General.Language = language;
+                    Thread.CurrentThread.CurrentUICulture = new CultureInfo(language);
+                    CreateLanguageMenu();
+                    ApplyUiLanguage();
+                    Program.SaveConfiguration();
+                };
+                languageMenu.DropDownItems.Add(item);
+            }
+
+            optionsToolStripMenuItem.DropDownItems.Insert(0, languageMenu);
+            if (optionsToolStripMenuItem.DropDownItems.Count > 1 && optionsToolStripMenuItem.DropDownItems[1] is not ToolStripSeparator)
+                optionsToolStripMenuItem.DropDownItems.Insert(1, new ToolStripSeparator());
+        }
+
+        private void ApplyUiLanguage()
+        {
+            fileToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.File");
+            openROMToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Open");
+            saveWAVToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.SaveWAV");
+            recentFilesToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.RecentFiles");
+            exitToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Exit");
+            emulationToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Emulation");
+            pauseToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Pause");
+            resetToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Reset");
+            saveStateToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.SaveState");
+            loadStateToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.LoadState");
+            shutdownToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Shutdown");
+            optionsToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Options");
+            screenSizeToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.ScreenSize");
+            rotateScreenToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.RotateScreen");
+            muteSoundToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Mute");
+            limitFPSToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.LimitFPS");
+            cheatsToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Cheats");
+            enableCheatsToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.EnableCheats");
+            cheatListToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.CheatList");
+            helpToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Help");
+            openDataFolderToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.OpenDataFolder");
+            aboutToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.About");
+
+            var languageMenu = optionsToolStripMenuItem.DropDownItems.OfType<ToolStripMenuItem>()
+                .FirstOrDefault(x => x.Name == "languageToolStripMenuItem");
+            if (languageMenu != null)
+                languageMenu.Text = Localizer.GetString("MainWindow.Menus.Language");
+
+            CreateRecentFilesMenu();
         }
 
         private void CreateRecentFilesMenu()
         {
             recentFilesToolStripMenuItem.DropDownItems.Clear();
 
-            var clearMenuItem = new ToolStripMenuItem("&Clear List...");
+            var clearMenuItem = new ToolStripMenuItem(Localizer.GetString("MainWindow.Menus.ClearRecent"));
             clearMenuItem.Click += (s, e) =>
             {
                 Program.Configuration.General.RecentFiles.Clear();
@@ -496,7 +590,7 @@ namespace StoicGoose.WinForms
             var filters = new List<string>();
             var extensionsList = new List<string>();
 
-            foreach (var (description, extension, _) in supportedFileInformation)
+            foreach (var (description, extension) in supportedFileInformation)
             {
                 var currentExtension = $"*{extension}";
                 extensionsList.Add(currentExtension);
@@ -532,7 +626,7 @@ namespace StoicGoose.WinForms
             CreateDataBinding(enableCheatsToolStripMenuItem.DataBindings, nameof(enableCheatsToolStripMenuItem.Checked), Program.Configuration.General, nameof(Program.Configuration.General.EnableCheats));
             enableCheatsToolStripMenuItem.CheckedChanged += (s, e) => { emulatorHandler.Machine.ReadMemoryCallback = Program.Configuration.General.EnableCheats ? MachineReadMemoryCallback : default; };
 
-            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = false;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
         }
 
         private byte MachineReadMemoryCallback(uint address, byte value)
@@ -606,21 +700,9 @@ namespace StoicGoose.WinForms
 
         private bool TryLoadAndRunCartridge(string filename)
         {
-            string[] getFilterExtensions(int index) => [.. ExtensionRegex().Matches(ofdOpenRom.Filter)[index].Value.Split('|')[1].Split(';').Select(x => x[x.LastIndexOf('.')..])];
-
-            var result = getFilterExtensions(0).Contains(Path.GetExtension(filename)) && File.Exists(filename);
+            var result = RomFile.IsSupported(filename);
             if (result) LoadAndRunCartridge(filename);
             return result;
-        }
-
-        private static FileStream GetStreamFromFile(string filename)
-        {
-            return new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        }
-
-        private static Stream GetStreamFromFirstZippedFile(string filename)
-        {
-            return new ZipArchive(new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)).Entries.FirstOrDefault()?.Open();
         }
 
         private void LoadAndRunCartridge(string filename)
@@ -631,13 +713,7 @@ namespace StoicGoose.WinForms
                 emulatorHandler.Shutdown();
             }
 
-            using var inputStream = supportedFileInformation.FirstOrDefault(x => x.extension == Path.GetExtension(filename)).streamReadFunc(filename) ?? GetStreamFromFile(filename);
-            using var stream = new MemoryStream();
-            inputStream.CopyTo(stream);
-            stream.Position = 0;
-
-            var data = new byte[stream.Length];
-            stream.Read(data, 0, data.Length);
+            var data = RomFile.Read(filename);
             emulatorHandler.Machine.LoadRom(data);
 
             graphicsHandler.IsVerticalOrientation = isVerticalOrientation = emulatorHandler.Machine.Cartridge.Metadata.Orientation == CartridgeMetadata.Orientations.Vertical;
@@ -647,6 +723,7 @@ namespace StoicGoose.WinForms
             CreateRecentFilesMenu();
 
             LoadRam();
+            LoadRtc();
             LoadCheats();
 
             LoadBootstrap(emulatorHandler.Machine is WonderSwan ? Program.Configuration.General.BootstrapFile : Program.Configuration.General.BootstrapFileWSC);
@@ -657,7 +734,7 @@ namespace StoicGoose.WinForms
             SizeAndPositionWindow();
             SetWindowTitleAndStatus();
 
-            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = true;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = true;
 
             Program.SaveConfiguration();
         }
@@ -667,11 +744,18 @@ namespace StoicGoose.WinForms
             var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sav");
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0)
-                emulatorHandler.Machine.LoadSaveData(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0)
+                    emulatorHandler.Machine.LoadSaveData(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save data from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadCheats()
@@ -687,6 +771,7 @@ namespace StoicGoose.WinForms
         {
             SaveInternalEeprom();
             SaveRam();
+            SaveRtc();
             SaveCheats();
         }
 
@@ -705,6 +790,40 @@ namespace StoicGoose.WinForms
             if (data.Length == 0) return;
 
             var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sav");
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save data to '{path}': {ex.Message}");
+            }
+        }
+
+        private void LoadRtc()
+        {
+            if (!emulatorHandler.Machine.HasRtcSave) return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.rtc");
+            if (!File.Exists(path)) return;
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var data = new byte[stream.Length];
+            stream.ReadExactly(data);
+            if (data.Length != 0)
+                emulatorHandler.Machine.LoadRtcState(data);
+        }
+
+        private void SaveRtc()
+        {
+            if (!emulatorHandler.Machine.HasRtcSave) return;
+
+            var data = emulatorHandler.Machine.GetRtcState();
+            if (data.Length == 0) return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.rtc");
 
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             stream.Write(data, 0, data.Length);
@@ -725,6 +844,7 @@ namespace StoicGoose.WinForms
 
             emulatorHandler.Pause();
             soundHandler.Pause();
+            SaveRam();
 
             SetWindowTitleAndStatus();
         }
@@ -745,6 +865,23 @@ namespace StoicGoose.WinForms
             emulatorHandler.Reset();
 
             Program.SaveConfiguration();
+        }
+
+        private void ShutdownEmulation()
+        {
+            if (!emulatorHandler.IsRunning) return;
+
+            SaveAllData();
+            emulatorHandler.Shutdown();
+
+            pauseToolStripMenuItem.Checked = false;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
+            SetWindowTitleAndStatus();
+        }
+
+        private void shutdownToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShutdownEmulation();
         }
 
         private void loadROMToolStripMenuItem_Click(object sender, EventArgs e)
@@ -779,6 +916,78 @@ namespace StoicGoose.WinForms
         private void resetToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ResetEmulation();
+        }
+
+        private void saveStateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveEmulatorState();
+        }
+
+        private void loadStateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadEmulatorState();
+        }
+
+        private void SaveEmulatorState()
+        {
+            if (!emulatorHandler.IsRunning)
+                return;
+
+            var wasPaused = emulatorHandler.IsPaused;
+            if (!wasPaused)
+                PauseEmulation();
+
+            try
+            {
+                var data = emulatorHandler.Machine.GetSaveState();
+                var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sst");
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateSaved");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save state: {ex.Message}");
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateSaveFailed");
+            }
+
+            if (!wasPaused)
+                UnpauseEmulation();
+        }
+
+        private void LoadEmulatorState()
+        {
+            if (!emulatorHandler.IsRunning)
+                return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sst");
+            if (!File.Exists(path))
+            {
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+                return;
+            }
+
+            var wasPaused = emulatorHandler.IsPaused;
+            if (!wasPaused)
+                PauseEmulation();
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                tsslStatus.Text = emulatorHandler.Machine.LoadSaveState(data)
+                    ? Localizer.GetString("MainWindow.StatusMessageStateLoaded")
+                    : Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save state from '{path}': {ex.Message}");
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+
+            if (!wasPaused)
+                UnpauseEmulation();
         }
 
         private void pauseToolStripMenuItem_Click(object sender, EventArgs e)
@@ -876,7 +1085,5 @@ namespace StoicGoose.WinForms
             UnpauseEmulation();
         }
 
-        [GeneratedRegex(@"[^|]+\|[^|]+")]
-        private static partial Regex ExtensionRegex();
     }
 }

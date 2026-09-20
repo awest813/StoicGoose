@@ -1,5 +1,6 @@
 ﻿using StoicGoose.Common.Attributes;
 using StoicGoose.Core.Interfaces;
+using System.IO;
 
 namespace StoicGoose.Core.Sound
 {
@@ -110,6 +111,20 @@ namespace StoicGoose.Core.Sound
                     base.WritePort(port, value);
                     break;
             }
+        }
+
+        public override void ExportState(BinaryWriter writer)
+        {
+            base.ExportState(writer);
+            writer.Write(unknown9697);
+            writer.Write(unknown9899);
+        }
+
+        public override void ImportState(BinaryReader reader)
+        {
+            base.ImportState(reader);
+            unknown9697 = reader.ReadUInt16();
+            unknown9899 = reader.ReadUInt16();
         }
 
         [Port("REG_SND_9697", 0x096, 0x097)]

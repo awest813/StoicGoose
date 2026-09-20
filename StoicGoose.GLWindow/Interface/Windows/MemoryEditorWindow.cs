@@ -163,7 +163,7 @@ namespace StoicGoose.GLWindow.Interface.Windows
                     contentsWidthChanged = false;
                 }
 
-                ImGui.End();
+                EndWindow();
             }
         }
 

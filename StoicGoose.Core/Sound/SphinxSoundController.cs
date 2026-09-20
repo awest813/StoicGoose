@@ -1,5 +1,6 @@
 ﻿using StoicGoose.Common.Attributes;
 using StoicGoose.Core.Interfaces;
+using System.IO;
 
 using static StoicGoose.Common.Utilities.BitHandling;
 
@@ -145,6 +146,18 @@ namespace StoicGoose.Core.Sound
                     base.WritePort(port, value);
                     break;
             }
+        }
+
+        public override void ExportState(BinaryWriter writer)
+        {
+            base.ExportState(writer);
+            channelHyperVoice.ExportState(writer);
+        }
+
+        public override void ImportState(BinaryReader reader)
+        {
+            base.ImportState(reader);
+            channelHyperVoice.ImportState(reader);
         }
 
         [Port("REG_HYPER_CTRL", 0x06A)]

@@ -46,13 +46,19 @@ namespace StoicGoose.ImGuiCommon.Handlers
                     var buttonWidth = (ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().ItemSpacing.X * (messageBoxes[i].Buttons.Length - 1))) / messageBoxes[i].Buttons.Length;
                     for (var j = 0; j < messageBoxes[i].Buttons.Length; j++)
                     {
-                        if (ImGui.Button(messageBoxes[i].Buttons[j], new NumericsVector2(buttonWidth, 0f)))
+                        if (ImGui.Button(messageBoxes[i].Buttons[j], new NumericsVector2(buttonWidth, 0f)) ||
+                            (j == 0 && ImGui.IsKeyPressed(ImGuiKey.Enter)) ||
+                            ImGui.IsKeyPressed(ImGuiKey.Escape))
                         {
                             ImGui.CloseCurrentPopup();
-                            messageBoxes[i].ReturnValue = j;
+                            messageBoxes[i].ReturnValue = ImGui.IsKeyPressed(ImGuiKey.Escape) ? -1 : j;
                             messageBoxes[i].IsOpen = false;
                             break;
                         }
+
+                        if (j == 0 && ImGui.IsWindowAppearing())
+                            ImGui.SetItemDefaultFocus();
+
                         ImGui.SameLine();
                     }
 

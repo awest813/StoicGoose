@@ -106,13 +106,7 @@ namespace StoicGoose.ImGuiCommon.Windows
                             {
                                 var line = validLines[i];
 
-                                // TODO: proper final byte detection?
-                                int escStartIdx;
-                                while ((escStartIdx = line.IndexOf('\x1B')) != -1)
-                                {
-                                    var escEndIdx = line.IndexOf('m', escStartIdx);
-                                    if (escEndIdx != -1) line = line.Remove(escStartIdx, escEndIdx - escStartIdx + 1);
-                                }
+                                line = StripAnsiSequences(line);
 
                                 var matches = line.IndexOfAll(filterString).Select(x => (start: x, end: x + filterString.Length)).ToArray();
                                 var currentMatch = 0;
@@ -180,8 +174,7 @@ namespace StoicGoose.ImGuiCommon.Windows
                                 {
                                     if (j + 1 < messageList[i].Length && line[j] == '\x1B' && line[j + 1] == '[')
                                     {
-                                        // TODO: proper final byte detection?
-                                        var escEndIdx = line.IndexOf('m', j);
+                                        var escEndIdx = IndexOfEscSequenceEnd(line, j + 2);
                                         if (escEndIdx != -1)
                                         {
                                             (color, _) = ParseEscSequence(line[j..(escEndIdx + 1)]);
@@ -235,8 +228,42 @@ namespace StoicGoose.ImGuiCommon.Windows
                 if (clear) messageList.Clear();
                 if (copy) ImGui.LogToClipboard();
 
-                ImGui.End();
+                EndWindow();
             }
+        }
+
+        private static int IndexOfEscSequenceEnd(string line, int parameterStart)
+        {
+            for (var i = parameterStart; i < line.Length; i++)
+            {
+                var ch = line[i];
+                if (ch >= '@' && ch <= '~')
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private static string StripAnsiSequences(string line)
+        {
+            var builder = new StringBuilder(line.Length);
+
+            for (var i = 0; i < line.Length; i++)
+            {
+                if (line[i] == '\x1B' && i + 1 < line.Length && line[i + 1] == '[')
+                {
+                    var escEndIdx = IndexOfEscSequenceEnd(line, i + 2);
+                    if (escEndIdx != -1)
+                    {
+                        i = escEndIdx;
+                        continue;
+                    }
+                }
+
+                builder.Append(line[i]);
+            }
+
+            return builder.ToString();
         }
 
         private static (uint fgColor, uint _) ParseEscSequence(string esc)

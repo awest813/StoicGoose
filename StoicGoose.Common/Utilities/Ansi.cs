@@ -21,36 +21,38 @@ namespace StoicGoose.Common.Utilities
         // Such a stupid gimmick... but hey, I like stupid gimmicks and I especially like making them, so whatever~
         public static string Gradient(string text, bool useHsl, params (byte r, byte g, byte b)[] colors)
         {
-            var stepsPerColor = (int)Math.Round(text.Length / (colors.Length - 1f), MidpointRounding.AwayFromZero);
-            var steps = Math.Max(stepsPerColor * (colors.Length - 1), text.Length);
+            if (colors.Length < 2 || text.Length == 0)
+                return text;
+
+            var segmentCount = colors.Length - 1;
+            var stepsPerColor = Math.Max(1, text.Length / segmentCount);
 
             List<(byte r, byte g, byte b)> gradient = [];
 
-            for (int i = 0, c = 0; i < steps; i += stepsPerColor, c++)
+            for (var c = 0; c < segmentCount; c++)
             {
-                // TODO: this is a workaround for a out-of-range bug, but ugh, it's for a mere gimmick barely anyone will ever see, soooooo... whatever!
-                if (c + 1 >= colors.Length) c--;
+                var segmentSteps = c == segmentCount - 1 ? text.Length - gradient.Count : stepsPerColor;
 
                 if (useHsl)
                 {
-                    var (h1, s1, l1) = RgbToHsl(colors[c + 0].r, colors[c + 0].g, colors[c + 0].b);
+                    var (h1, s1, l1) = RgbToHsl(colors[c].r, colors[c].g, colors[c].b);
                     var (h2, s2, l2) = RgbToHsl(colors[c + 1].r, colors[c + 1].g, colors[c + 1].b);
 
-                    for (var j = 0; j < stepsPerColor; j++)
+                    for (var j = 0; j < segmentSteps; j++)
                     {
-                        var by = Math.Clamp(j / 1f / ((stepsPerColor - 1) / 1f), 0f, 1f);
+                        var by = segmentSteps == 1 ? 0f : Math.Clamp(j / (segmentSteps - 1f), 0f, 1f);
                         var (h, s, l) = Lerp(h1, s1, l1, h2, s2, l2, by);
                         gradient.Add(HslToRgb(h, s, l));
                     }
                 }
                 else
                 {
-                    var (r1, g1, b1) = (colors[c + 0].r / 255f, colors[c + 0].g / 255f, colors[c + 0].b / 255f);
+                    var (r1, g1, b1) = (colors[c].r / 255f, colors[c].g / 255f, colors[c].b / 255f);
                     var (r2, g2, b2) = (colors[c + 1].r / 255f, colors[c + 1].g / 255f, colors[c + 1].b / 255f);
 
-                    for (var j = 0; j < stepsPerColor; j++)
+                    for (var j = 0; j < segmentSteps; j++)
                     {
-                        var by = Math.Clamp(j / 1f / ((stepsPerColor - 1) / 1f), 0f, 1f);
+                        var by = segmentSteps == 1 ? 0f : Math.Clamp(j / (segmentSteps - 1f), 0f, 1f);
                         gradient.Add(((byte)(Lerp(r1, r2, by) * 255), (byte)(Lerp(g1, g2, by) * 255), (byte)(Lerp(b1, b2, by) * 255)));
                     }
                 }

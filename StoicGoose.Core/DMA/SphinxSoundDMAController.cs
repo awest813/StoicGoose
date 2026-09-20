@@ -1,4 +1,5 @@
 ﻿using StoicGoose.Core.Interfaces;
+using System.IO;
 
 using static StoicGoose.Common.Utilities.BitHandling;
 
@@ -163,6 +164,26 @@ namespace StoicGoose.Core.DMA
                     dmaControl = (byte)(value & 0b11011111);
                     break;
             }
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(dmaSource);
+            writer.Write(dmaLength);
+            writer.Write(dmaControl);
+            writer.Write(initialSource);
+            writer.Write(initialLength);
+            writer.Write(cycleCount);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            dmaSource = reader.ReadUInt32();
+            dmaLength = reader.ReadUInt32();
+            dmaControl = reader.ReadByte();
+            initialSource = reader.ReadUInt32();
+            initialLength = reader.ReadUInt32();
+            cycleCount = reader.ReadInt32();
         }
     }
 }

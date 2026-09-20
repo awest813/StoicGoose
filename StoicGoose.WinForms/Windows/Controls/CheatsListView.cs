@@ -5,7 +5,7 @@ namespace StoicGoose.WinForms.Windows.Controls
 {
     public class CheatsListView : ListViewEx<Cheat>
     {
-        readonly static string[] cheatConditionSymbols = ["^", "<", "<=", "=>", ">"];
+        readonly static string[] cheatConditionSymbols = ["^", "<", "<=", ">=", ">"];
 
         readonly static List<(string ColumnName, Func<Cheat, object> ValueLookup, Func<Cheat, string> DisplayStringLookup)> columnMappingForCheat =
         [

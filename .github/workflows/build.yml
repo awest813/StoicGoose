@@ -6,8 +6,8 @@ on:
     branches: ['main']
 
 jobs:
-  build:
-    name: Build
+  build-windows:
+    name: Build (Windows)
     runs-on: windows-latest
 
     env:
@@ -27,9 +27,9 @@ jobs:
             artifacts: StoicGoose.GLWindow-artifacts
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-nuget
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
 
@@ -53,5 +53,44 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifacts }}-${{ github.ref_name }}-${{ github.sha }}
+          name: ${{ matrix.artifacts }}-${{ github.run_id }}-${{ github.sha }}
+          path: ${{ github.workspace }}/release/*
+
+  build-linux:
+    name: Build (Linux, GLWindow)
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      DOTNET_NOLOGO: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore StoicGoose.GLWindow/StoicGoose.GLWindow.csproj
+
+      - name: Build
+        run: dotnet build StoicGoose.GLWindow/StoicGoose.GLWindow.csproj --no-restore
+
+      - name: Publish
+        run: dotnet publish StoicGoose.GLWindow/StoicGoose.GLWindow.csproj -c Release -o release --nologo
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StoicGoose.GLWindow-linux-artifacts-${{ github.run_id }}-${{ github.sha }}
           path: ${{ github.workspace }}/release/*

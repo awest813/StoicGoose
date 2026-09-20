@@ -5,8 +5,6 @@ namespace StoicGoose.Core.Display
 {
     public static class DisplayUtilities
     {
-        // TODO: WSC high contrast mode
-
         private static ushort ReadMemory16(IMachine machine, uint address) => (ushort)(machine.ReadMemory(address + 1) << 8 | machine.ReadMemory(address));
         private static uint ReadMemory32(IMachine machine, uint address) => (uint)(machine.ReadMemory(address + 3) << 24 | machine.ReadMemory(address + 2) << 16 | machine.ReadMemory(address + 1) << 8 | machine.ReadMemory(address));
 
@@ -34,7 +32,7 @@ namespace StoicGoose.Core.Display
                 /* 4bpp packed mode */
                 else if (isPacked)
                 {
-                    var data = machine.ReadMemory((ushort)(0x4000 + ((tile & 0x03FF) << 5) + ((y % 8) << 2) + ((x % 8) >> 1)));
+                    var data = machine.ReadMemory((uint)(0x4000 + ((tile & 0x03FF) << 5) + ((y % 8) << 2) + ((x % 8) >> 1)));
                     return (byte)((data >> 4 - (((x % 8) & 0b1) << 2)) & 0b1111);
                 }
             }
@@ -50,8 +48,16 @@ namespace StoicGoose.Core.Display
 
         private static byte DuplicateBits(int value) => (byte)((value & 0b1111) | (value & 0b1111) << 4);
 
-        public static (byte r, byte g, byte b) GeneratePixel(byte data) => (DuplicateBits(data), DuplicateBits(data), DuplicateBits(data));
-        public static (byte r, byte g, byte b) GeneratePixel(ushort data) => (DuplicateBits(data >> 8), DuplicateBits(data >> 4), DuplicateBits(data >> 0));
+        private static byte ApplyContrast(byte channel, bool highContrast)
+        {
+            if (!highContrast) return channel;
+
+            var nibble = channel >> 4;
+            return DuplicateBits(Math.Min(15, (nibble * 3 + 1) / 2));
+        }
+
+        public static (byte r, byte g, byte b) GeneratePixel(byte data, bool highContrast = false) => (ApplyContrast(DuplicateBits(data), highContrast), ApplyContrast(DuplicateBits(data), highContrast), ApplyContrast(DuplicateBits(data), highContrast));
+        public static (byte r, byte g, byte b) GeneratePixel(ushort data, bool highContrast = false) => (ApplyContrast(DuplicateBits(data >> 8), highContrast), ApplyContrast(DuplicateBits(data >> 4), highContrast), ApplyContrast(DuplicateBits(data >> 0), highContrast));
 
         public static void CopyPixel((byte r, byte g, byte b) pixel, byte[] data, int x, int y, int stride) => CopyPixel(pixel, data, ((y * stride) + x) * 4);
         public static void CopyPixel((byte r, byte g, byte b) pixel, byte[] data, long address)

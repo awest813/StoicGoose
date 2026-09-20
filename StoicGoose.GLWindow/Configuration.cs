@@ -27,6 +27,18 @@ namespace StoicGoose.GLWindow
         [Description("Most recently loaded ROM image.")]
         public string LastRomLoaded { get; set; } = string.Empty;
 
+        [DisplayName("Recent Files")]
+        [Description("List of recently loaded files.")]
+        public List<string> RecentFiles { get; set; } = [];
+
+        [DisplayName("Enable Cheats")]
+        [Description("Toggle using the cheat / memory patch system.")]
+        public bool EnableCheats { get; set; } = false;
+
+        [DisplayName("Low-Pass Filter")]
+        [Description("Toggles low-pass filter for all sound output.")]
+        public bool LowPassFilter { get; set; } = true;
+
         [DisplayName("Enable Patch Callbacks")]
         [Description("Enable or disable callbacks functions for patches.")]
         public bool EnablePatchCallbacks { get; set; } = false;

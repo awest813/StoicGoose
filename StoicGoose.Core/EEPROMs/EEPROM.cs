@@ -1,13 +1,22 @@
 ﻿using StoicGoose.Core.Interfaces;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.EEPROMs
 {
-    public sealed class EEPROM(int size, int addressBits) : IPortAccessComponent
+    public sealed class EEPROM : IPortAccessComponent
     {
-        readonly byte[] contents = new byte[size];
-        readonly int numAddressBits = addressBits;
+        readonly byte[] contents;
+        readonly int numAddressBits;
+
+        public EEPROM(int size, int addressBits)
+        {
+            contents = new byte[size];
+            Array.Fill<byte>(contents, 0xFF);
+            numAddressBits = addressBits;
+        }
 
         bool eraseWriteEnable = false;
 
@@ -27,10 +36,10 @@ namespace StoicGoose.Core.EEPROMs
 
         public void LoadContents(byte[] data)
         {
-            if (data.Length != contents.Length)
-                throw new Exception("Data size mismatch error");
+            if (contents.Length == 0 || data == null || data.Length == 0)
+                return;
 
-            Buffer.BlockCopy(data, 0, contents, 0, data.Length);
+            Buffer.BlockCopy(data, 0, contents, 0, Math.Min(data.Length, contents.Length));
         }
 
         public byte[] GetContents()
@@ -41,6 +50,32 @@ namespace StoicGoose.Core.EEPROMs
         public void Program(int address, byte value)
         {
             contents[address & (contents.Length - 1)] = value;
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            SaveStateIO.WriteBytes(writer, contents);
+            writer.Write(numAddressBits);
+            writer.Write(eraseWriteEnable);
+            writer.Write(dataLo);
+            writer.Write(dataHi);
+            writer.Write(addressLo);
+            writer.Write(addressHi);
+            writer.Write(statusCmd);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            var data = SaveStateIO.ReadBytes(reader);
+            LoadContents(data);
+            var addressBits = reader.ReadInt32();
+            _ = addressBits;
+            eraseWriteEnable = reader.ReadBoolean();
+            dataLo = reader.ReadByte();
+            dataHi = reader.ReadByte();
+            addressLo = reader.ReadByte();
+            addressHi = reader.ReadByte();
+            statusCmd = reader.ReadByte();
         }
 
         private void BeginAccess()
