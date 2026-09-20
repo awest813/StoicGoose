@@ -2,7 +2,19 @@
 {
     public class DisplayTimer
     {
-        public bool Enable { get; set; }
+        bool enable;
+
+        public bool Enable
+        {
+            get => enable;
+            set
+            {
+                if (value && !enable && Frequency != 0)
+                    Counter = Frequency;
+                enable = value;
+            }
+        }
+
         public bool Repeating { get; set; }
         public ushort Frequency { get; set; }
 
@@ -15,7 +27,7 @@
 
         public void Reset()
         {
-            Enable = Repeating = false;
+            enable = Repeating = false;
             Frequency = Counter = 0;
         }
 
@@ -26,15 +38,14 @@
 
         public bool Step()
         {
-            var counterNew = (ushort)(Counter - 1);
+            if (!enable || Counter == 0)
+                return false;
 
-            if (Enable && Counter != 0)
-            {
-                Counter = counterNew;
-                if (Repeating && Counter == 0)
-                    Reload();
-            }
-            return counterNew == 0;
+            Counter--;
+            var expired = Counter == 0;
+            if (expired && Repeating)
+                Reload();
+            return expired;
         }
     }
 }

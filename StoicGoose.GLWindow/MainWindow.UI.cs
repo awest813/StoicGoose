@@ -136,7 +136,7 @@ namespace StoicGoose.GLWindow
                 SubItems =
                 [
                     new(localization: "MainWindow.Menus.Pause",
-                    clickAction: (_) => { isPaused = !isPaused; },
+                    clickAction: (_) => { isPaused = !isPaused; if (isPaused) SaveCartridgeRam(); },
                     updateAction: (s) => { s.IsEnabled = isRunning; s.IsChecked = isPaused; })
                     { Shortcut = "Ctrl+P" },
                     new(localization: "MainWindow.Menus.Reset",

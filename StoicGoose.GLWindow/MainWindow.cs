@@ -180,7 +180,10 @@ namespace StoicGoose.GLWindow
                 if (keyState.IsKeyPressed(Keys.O))
                     openRomDialog.IsOpen = true;
                 else if (keyState.IsKeyPressed(Keys.P) && isRunning)
+                {
                     isPaused = !isPaused;
+                    if (isPaused) SaveCartridgeRam();
+                }
                 else if (keyState.IsKeyPressed(Keys.R) && isRunning)
                 {
                     SaveVolatileData();
@@ -343,6 +346,8 @@ namespace StoicGoose.GLWindow
                 .ToDictionary(x => x[0], x => x[1]));
 
             displayTexture = new Texture(machine.ScreenWidth, machine.ScreenHeight, 0, 0, 0, 255);
+            displayTexture.SetTextureFilter(TextureMinFilter.Nearest, TextureMagFilter.Nearest);
+            displayTexture.SetTextureWrapMode(TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge);
 
             if (Program.Configuration.BootstrapFiles.TryGetValue(typeName, out string value))
                 bootstrapFilename = value;
@@ -543,10 +548,17 @@ namespace StoicGoose.GLWindow
             var path = Path.Combine(Program.SaveDataPath, cartSaveFilename);
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0) machine.LoadSaveData(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0) machine.LoadSaveData(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save data from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadInternalEeprom()
@@ -556,10 +568,17 @@ namespace StoicGoose.GLWindow
             var path = Path.Combine(Program.InternalDataPath, Program.InternalEepromFilenames[machine.GetType()]);
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0) machine.LoadInternalEeprom(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0) machine.LoadInternalEeprom(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load internal EEPROM from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadMemoryPatches()
@@ -605,8 +624,15 @@ namespace StoicGoose.GLWindow
 
             var path = Path.Combine(Program.SaveDataPath, cartSaveFilename);
 
-            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-            stream.Write(data, 0, data.Length);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save data to '{path}': {ex.Message}");
+            }
         }
 
         private void LoadCartridgeRtc()

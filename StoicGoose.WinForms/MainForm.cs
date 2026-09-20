@@ -742,11 +742,18 @@ namespace StoicGoose.WinForms
             var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sav");
             if (!File.Exists(path)) return;
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
-            if (data.Length != 0)
-                emulatorHandler.Machine.LoadSaveData(data);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (data.Length != 0)
+                    emulatorHandler.Machine.LoadSaveData(data);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save data from '{path}': {ex.Message}");
+            }
         }
 
         private void LoadCheats()
@@ -782,8 +789,15 @@ namespace StoicGoose.WinForms
 
             var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sav");
 
-            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-            stream.Write(data, 0, data.Length);
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save data to '{path}': {ex.Message}");
+            }
         }
 
         private void LoadRtc()
@@ -828,6 +842,7 @@ namespace StoicGoose.WinForms
 
             emulatorHandler.Pause();
             soundHandler.Pause();
+            SaveRam();
 
             SetWindowTitleAndStatus();
         }

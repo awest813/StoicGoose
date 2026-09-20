@@ -32,7 +32,7 @@ namespace StoicGoose.Core.Display
                 /* 4bpp packed mode */
                 else if (isPacked)
                 {
-                    var data = machine.ReadMemory((ushort)(0x4000 + ((tile & 0x03FF) << 5) + ((y % 8) << 2) + ((x % 8) >> 1)));
+                    var data = machine.ReadMemory((uint)(0x4000 + ((tile & 0x03FF) << 5) + ((y % 8) << 2) + ((x % 8) >> 1)));
                     return (byte)((data >> 4 - (((x % 8) & 0b1) << 2)) & 0b1111);
                 }
             }

@@ -4,10 +4,17 @@ using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.EEPROMs
 {
-    public sealed class EEPROM(int size, int addressBits) : IPortAccessComponent
+    public sealed class EEPROM : IPortAccessComponent
     {
-        readonly byte[] contents = new byte[size];
-        readonly int numAddressBits = addressBits;
+        readonly byte[] contents;
+        readonly int numAddressBits;
+
+        public EEPROM(int size, int addressBits)
+        {
+            contents = new byte[size];
+            Array.Fill<byte>(contents, 0xFF);
+            numAddressBits = addressBits;
+        }
 
         bool eraseWriteEnable = false;
 
@@ -27,10 +34,10 @@ namespace StoicGoose.Core.EEPROMs
 
         public void LoadContents(byte[] data)
         {
-            if (data.Length != contents.Length)
-                throw new Exception("Data size mismatch error");
+            if (contents.Length == 0 || data == null || data.Length == 0)
+                return;
 
-            Buffer.BlockCopy(data, 0, contents, 0, data.Length);
+            Buffer.BlockCopy(data, 0, contents, 0, Math.Min(data.Length, contents.Length));
         }
 
         public byte[] GetContents()

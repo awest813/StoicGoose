@@ -53,15 +53,23 @@ namespace StoicGoose.Core.Cartridges
         public void LoadRom(byte[] data)
         {
             rom = data;
-            romMask = (uint)(rom.Length - 1);
+            romMask = IsPowerOfTwo(rom.Length) ? (uint)(rom.Length - 1) : 0;
 
             metadata = new Metadata(rom);
+
+            sram = [];
+            sramMask = 0;
+            eeprom?.Shutdown();
+            eeprom = null;
+            rtc?.Shutdown();
+            rtc = null;
 
             if (metadata.SaveSize != 0)
             {
                 if (metadata.IsSramSave)
                 {
                     sram = new byte[metadata.SaveSize];
+                    Array.Fill<byte>(sram, 0xFF);
                     sramMask = (uint)(sram.Length - 1);
                 }
                 else if (metadata.IsEepromSave)
@@ -106,8 +114,10 @@ namespace StoicGoose.Core.Cartridges
 
         public void LoadSram(byte[] data)
         {
-            if (data.Length != sram.Length) throw new Exception("Sram size mismatch");
-            Buffer.BlockCopy(data, 0, sram, 0, data.Length);
+            if (sram.Length == 0 || data == null || data.Length == 0)
+                return;
+
+            Buffer.BlockCopy(data, 0, sram, 0, Math.Min(data.Length, sram.Length));
         }
 
         public void LoadEeprom(byte[] data)
@@ -143,11 +153,11 @@ namespace StoicGoose.Core.Cartridges
                 /* SRAM */
                 var n when n >= 0x010000 && n < 0x020000 && sram.Length != 0 => sram[((uint)(sramBank << 16) | (address & 0x0FFFF)) & sramMask],
                 /* ROM bank 0 */
-                var n when n >= 0x020000 && n < 0x030000 && rom.Length != 0 => rom[((uint)(romBank0 << 16) | (address & 0x0FFFF)) & romMask],
+                var n when n >= 0x020000 && n < 0x030000 && rom.Length != 0 => rom[MapRom((uint)(romBank0 << 16) | (address & 0x0FFFF))],
                 /* ROM bank 1 */
-                var n when n >= 0x030000 && n < 0x040000 && rom.Length != 0 => rom[((uint)(romBank1 << 16) | (address & 0x0FFFF)) & romMask],
+                var n when n >= 0x030000 && n < 0x040000 && rom.Length != 0 => rom[MapRom((uint)(romBank1 << 16) | (address & 0x0FFFF))],
                 /* ROM bank 2 */
-                var n when n >= 0x040000 && n < 0x100000 && rom.Length != 0 => rom[((uint)(romBank2 << 20) | (address & 0xFFFFF)) & romMask],
+                var n when n >= 0x040000 && n < 0x100000 && rom.Length != 0 => rom[MapRom((uint)(romBank2 << 20) | (address & 0xFFFFF))],
                 /* Unmapped */
                 _ => 0x90,
             };
@@ -236,5 +246,18 @@ namespace StoicGoose.Core.Cartridges
                     break;
             }
         }
+
+        private uint MapRom(uint linear)
+        {
+            if (rom.Length == 0)
+                return 0;
+
+            if (romMask != 0)
+                return linear & romMask;
+
+            return linear % (uint)rom.Length;
+        }
+
+        private static bool IsPowerOfTwo(int value) => value > 0 && (value & (value - 1)) == 0;
     }
 }

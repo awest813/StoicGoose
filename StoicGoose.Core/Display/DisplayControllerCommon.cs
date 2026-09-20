@@ -43,7 +43,8 @@ namespace StoicGoose.Core.Display
         protected int spriteCountNextFrame = 0, activeSpriteCountOnLine = 0;
 
         protected int cycleCount = 0;
-        protected readonly byte[] outputFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
+        protected byte[] outputFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
+        protected byte[] transferFramebuffer = new byte[ScreenWidth * ScreenHeight * 4];
 
         public Action<byte[]> SendFramebuffer { get; set; } = default;
 
@@ -92,6 +93,7 @@ namespace StoicGoose.Core.Display
             cycleCount = 0;
 
             Array.Fill<byte>(outputFramebuffer, 255);
+            Array.Fill<byte>(transferFramebuffer, 255);
 
             Array.Fill(isUsedBySCR2, false);
 
@@ -171,8 +173,9 @@ namespace StoicGoose.Core.Display
                     if (vBlankTimer.Step())
                         interrupt |= DisplayInterrupts.VBlankTimer;
 
-                    /* Transfer framebuffer */
-                    SendFramebuffer?.Invoke(outputFramebuffer.Clone() as byte[]);
+                    /* Present the completed frame without mutating the buffer the renderer still holds. */
+                    (outputFramebuffer, transferFramebuffer) = (transferFramebuffer, outputFramebuffer);
+                    SendFramebuffer?.Invoke(transferFramebuffer);
                 }
 
                 /* Advance scanline */
