@@ -3,6 +3,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using StoicGoose.Common.Extensions;
+using StoicGoose.Common.IO;
 using StoicGoose.Common.Localization;
 using StoicGoose.Common.OpenGL;
 using StoicGoose.Common.Utilities;
@@ -92,6 +93,7 @@ namespace StoicGoose.GLWindow
             imGuiHandler.RegisterWindow(tilemapViewerWindow, () => machine);
             imGuiHandler.RegisterWindow(memoryPatchWindow, () => (memoryPatches, isRunning));
             imGuiHandler.RegisterWindow(inputSettingsWindow, () => (Program.Configuration.GameControls, Program.Configuration.SystemControls));
+            imGuiHandler.RegisterWindow(wavRecorderWindow, () => null);
 
             foreach (var windowTypeName in Program.Configuration.WindowsToRestore)
             {
@@ -105,6 +107,7 @@ namespace StoicGoose.GLWindow
             renderState.SetBlending(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
             soundHandler.SetMute(Program.Configuration.Mute);
+            soundHandler.SetLowPassFilter(Program.Configuration.LowPassFilter);
 
             inputHandler.SetGameWindow(this);
             inputHandler.SetKeyMapping(Program.Configuration.GameControls, Program.Configuration.SystemControls);
@@ -127,6 +130,8 @@ namespace StoicGoose.GLWindow
             Program.Configuration.WindowsToRestore = [.. imGuiHandler.OpenWindows.Select(x => x.GetType().FullName)];
 
             Program.Configuration.DisplaySize = displayWindow.WindowScale;
+
+            wavRecorderWindow?.StopRecording();
 
             Program.SaveConfiguration();
 
@@ -181,6 +186,8 @@ namespace StoicGoose.GLWindow
                     SaveVolatileData();
                     machine?.Reset();
                 }
+                else if (keyState.IsKeyPressed(Keys.W))
+                    wavRecorderWindow.IsWindowOpen = !wavRecorderWindow.IsWindowOpen;
             }
 
             frameTimeElapsed += args.Time;
@@ -291,7 +298,11 @@ namespace StoicGoose.GLWindow
             machine = Activator.CreateInstance(Type.GetType($"{typeName}, {Assembly.GetAssembly(typeof(IMachine))}")) as IMachine;
             machine.Initialize();
             machine.DisplayController.SendFramebuffer = (fb) => { displayTexture?.Update(fb); };
-            machine.SoundController.SendSamples = (s) => { soundHandler?.EnqueueSamples(s); };
+            machine.SoundController.SendSamples = (s) =>
+            {
+                soundHandler?.EnqueueSamples(s);
+                wavRecorderWindow?.EnqueueSamples(s);
+            };
             machine.ReceiveInput = () =>
             {
                 var buttonsPressed = new List<string>();
@@ -307,7 +318,7 @@ namespace StoicGoose.GLWindow
                 return (buttonsPressed, buttonsHeld);
             };
 
-            ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks);
+            ApplyMachinePatchHandlers(Program.Configuration.EnablePatchCallbacks || Program.Configuration.EnableCheats);
             ApplyMachineBreakpointHandlers(Program.Configuration.EnableBreakpoints);
 
             breakpointVariables = new(machine);
@@ -458,7 +469,7 @@ namespace StoicGoose.GLWindow
 
         private bool TryLoadAndRunCartridge(string filename)
         {
-            var result = openRomDialog.GetFilterExtensions(0).Contains(Path.GetExtension(filename)) && File.Exists(filename);
+            var result = RomFile.IsSupported(filename);
             if (result) LoadAndRunCartridge(filename);
             return result;
         }
@@ -479,9 +490,7 @@ namespace StoicGoose.GLWindow
             cartPatchFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_patches.json";
             cartBreakpointFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_breakpoints.json";
 
-            using var stream = new FileStream(cartridgeFilename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var data = new byte[stream.Length];
-            stream.ReadExactly(data);
+            var data = RomFile.Read(cartridgeFilename);
             machine.LoadRom(data);
 
             isVerticalOrientation = machine.Cartridge.Metadata.Orientation == CartridgeMetadata.Orientations.Vertical;
@@ -502,6 +511,8 @@ namespace StoicGoose.GLWindow
             statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageEmulating", new { machine.Manufacturer, machine.Model, Filename = cartridgeFilename, GameId = machine.Cartridge.Metadata.GameIdString });
 
             Program.Configuration.LastRomLoaded = cartridgeFilename;
+            AddToRecentFiles(cartridgeFilename);
+            RebuildRecentFilesMenu();
 
             Program.SaveConfiguration();
 

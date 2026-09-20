@@ -25,6 +25,7 @@ namespace StoicGoose.GLWindow
 
         const string internalDataDirectoryName = "Internal";
         const string saveDataDirectoryName = "Saves";
+        const string cheatDataDirectoryName = "Cheats";
         const string debuggingDataDirectoryName = "Debugging";
 
         readonly static FileVersionInfo assemblyVersionInfo = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
@@ -38,8 +39,10 @@ namespace StoicGoose.GLWindow
 
         public static Configuration Configuration { get; private set; } = LoadConfiguration(programConfigPath);
 
+        public static string DataPath { get; } = string.Empty;
         public static string InternalDataPath { get; } = string.Empty;
         public static string SaveDataPath { get; } = string.Empty;
+        public static string CheatsDataPath { get; } = string.Empty;
         public static string DebuggingDataPath { get; } = string.Empty;
 
         public static Dictionary<Type, string> InternalEepromFilenames { get; } = new();
@@ -53,8 +56,10 @@ namespace StoicGoose.GLWindow
 
             Log.Initialize(Path.Combine(programDataDirectory, logFileName));
 
+            Directory.CreateDirectory(DataPath = programDataDirectory);
             Directory.CreateDirectory(InternalDataPath = Path.Combine(programDataDirectory, internalDataDirectoryName));
             Directory.CreateDirectory(SaveDataPath = Path.Combine(programDataDirectory, saveDataDirectoryName));
+            Directory.CreateDirectory(CheatsDataPath = Path.Combine(programDataDirectory, cheatDataDirectoryName));
             Directory.CreateDirectory(DebuggingDataPath = Path.Combine(programDataDirectory, debuggingDataDirectoryName));
 
             IMachine.GetMachineTypes().ToList().ForEach(x => InternalEepromFilenames.Add(x, $"{x.Name}.eep"));
@@ -132,6 +137,9 @@ namespace StoicGoose.GLWindow
                 configuration = new Configuration();
                 configuration.SerializeToFile(filename);
             }
+
+            if (configuration.RecentFiles.Count == 0 && !string.IsNullOrEmpty(configuration.LastRomLoaded))
+                configuration.RecentFiles.Add(configuration.LastRomLoaded);
 
             return configuration;
         }

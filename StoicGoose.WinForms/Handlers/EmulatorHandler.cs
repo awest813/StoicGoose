@@ -19,6 +19,7 @@ namespace StoicGoose.WinForms.Handlers
 
         public bool IsRunning => threadRunning;
         public bool IsPaused => threadPaused;
+        public double FramesPerSecond { get; private set; }
 
         public IMachine Machine { get; } = default;
 
@@ -77,6 +78,8 @@ namespace StoicGoose.WinForms.Handlers
             var stopWatch = Stopwatch.StartNew();
             var interval = 1000.0 / Machine.RefreshRate;
             var lastTime = 0.0;
+            var fpsWindowStart = 0.0;
+            var framesInWindow = 0;
 
             while (true)
             {
@@ -116,6 +119,14 @@ namespace StoicGoose.WinForms.Handlers
                         lastTime = stopWatch.Elapsed.TotalMilliseconds;
 
                     Machine.RunFrame();
+                    framesInWindow++;
+                    var elapsedSeconds = stopWatch.Elapsed.TotalSeconds;
+                    if (elapsedSeconds - fpsWindowStart >= 0.5)
+                    {
+                        FramesPerSecond = framesInWindow / Math.Max(elapsedSeconds - fpsWindowStart, 0.0001);
+                        framesInWindow = 0;
+                        fpsWindowStart = elapsedSeconds;
+                    }
 
                     if (Machine.IsPoweredOff)
                         threadPaused = true;

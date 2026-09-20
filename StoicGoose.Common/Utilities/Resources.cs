@@ -1,5 +1,6 @@
 ﻿using StoicGoose.Common.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace StoicGoose.Common.Utilities
@@ -8,9 +9,19 @@ namespace StoicGoose.Common.Utilities
     {
         private static Stream GetEmbeddedResourceStream(string name)
         {
-            var assembly = Assembly.GetEntryAssembly();
-            name = $"{assembly.GetName().Name}.{name}";
-            return assembly.GetManifestResourceStream(name);
+            var assemblies = new Assembly[] { Assembly.GetEntryAssembly(), typeof(Resources).Assembly }
+                .Where(assembly => assembly != null)
+                .Distinct();
+
+            foreach (var assembly in assemblies)
+            {
+                var resourceName = $"{assembly.GetName().Name}.{name}";
+                var stream = assembly.GetManifestResourceStream(resourceName);
+                if (stream != null)
+                    return stream;
+            }
+
+            return null;
         }
 
         public static RgbaFile GetEmbeddedRgbaFile(string name)

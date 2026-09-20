@@ -1,4 +1,5 @@
-﻿using StoicGoose.Common.Utilities;
+﻿using StoicGoose.Common.Localization;
+using StoicGoose.Common.Utilities;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -41,6 +42,9 @@ namespace StoicGoose.WinForms
         [DisplayName("Enable Cheats")]
         [Description("Toggle using the cheat system.")]
         public bool EnableCheats { get; set; } = true;
+        [DisplayName("UI Language")]
+        [Description("Preferred user interface language.")]
+        public string Language { get; set; } = Localizer.FallbackCulture;
         [DisplayName("Recent Files")]
         [Description("List of recently loaded files.")]
         public List<string> RecentFiles { get; set; } = new List<string>(15);

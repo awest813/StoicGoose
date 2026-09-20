@@ -1,4 +1,4 @@
-﻿using StoicGoose.WinForms.IO;
+﻿using StoicGoose.Common.IO;
 using System;
 using System.Windows.Forms;
 

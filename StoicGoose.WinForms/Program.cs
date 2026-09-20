@@ -1,7 +1,9 @@
 using StoicGoose.Common.Extensions;
+using StoicGoose.Common.Localization;
 using StoicGoose.Common.Utilities;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -56,7 +58,14 @@ namespace StoicGoose.WinForms
         {
             try
             {
-                Thread.CurrentThread.CurrentCulture = Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+                Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
+                Localizer.Initialize(Resources.GetEmbeddedText("Assets.Localization.json"));
+
+                if (string.IsNullOrEmpty(Configuration.General.Language))
+                    Configuration.General.Language = Localizer.FallbackCulture;
+
+                Thread.CurrentThread.CurrentUICulture = new CultureInfo(Configuration.General.Language);
 
                 Log.Initialize(Path.Combine(programDataDirectory, logFileName));
 
