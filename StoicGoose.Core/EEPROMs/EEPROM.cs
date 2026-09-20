@@ -1,5 +1,7 @@
 ﻿using StoicGoose.Core.Interfaces;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.EEPROMs
@@ -48,6 +50,32 @@ namespace StoicGoose.Core.EEPROMs
         public void Program(int address, byte value)
         {
             contents[address & (contents.Length - 1)] = value;
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            SaveStateIO.WriteBytes(writer, contents);
+            writer.Write(numAddressBits);
+            writer.Write(eraseWriteEnable);
+            writer.Write(dataLo);
+            writer.Write(dataHi);
+            writer.Write(addressLo);
+            writer.Write(addressHi);
+            writer.Write(statusCmd);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            var data = SaveStateIO.ReadBytes(reader);
+            LoadContents(data);
+            var addressBits = reader.ReadInt32();
+            _ = addressBits;
+            eraseWriteEnable = reader.ReadBoolean();
+            dataLo = reader.ReadByte();
+            dataHi = reader.ReadByte();
+            addressLo = reader.ReadByte();
+            addressHi = reader.ReadByte();
+            statusCmd = reader.ReadByte();
         }
 
         private void BeginAccess()

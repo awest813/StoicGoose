@@ -4,6 +4,7 @@ using StoicGoose.Core.DMA;
 using StoicGoose.Core.Serial;
 using StoicGoose.Core.Sound;
 using System.Collections.Generic;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Machines
@@ -59,6 +60,7 @@ namespace StoicGoose.Core.Machines
         public override void Reset()
         {
             DmaController.Reset();
+            SoundDmaController.Reset();
 
             base.Reset();
         }
@@ -73,6 +75,7 @@ namespace StoicGoose.Core.Machines
         public override void Shutdown()
         {
             DmaController.Shutdown();
+            SoundDmaController.Shutdown();
 
             base.Shutdown();
         }
@@ -118,6 +121,20 @@ namespace StoicGoose.Core.Machines
             }
             else
                 cancelFrameExecution = true;
+        }
+
+        protected override void ExportState(BinaryWriter writer)
+        {
+            base.ExportState(writer);
+            DmaController.ExportState(writer);
+            SoundDmaController.ExportState(writer);
+        }
+
+        protected override void ImportState(BinaryReader reader)
+        {
+            base.ImportState(reader);
+            DmaController.ImportState(reader);
+            SoundDmaController.ImportState(reader);
         }
 
         public override byte ReadPort(ushort port)

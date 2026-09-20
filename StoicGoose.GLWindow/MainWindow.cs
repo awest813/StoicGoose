@@ -50,7 +50,7 @@ namespace StoicGoose.GLWindow
         Breakpoint lastBreakpointHit = default;
 
         /* Misc. runtime variables */
-        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartRtcFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
+        string bootstrapFilename = default, cartridgeFilename = default, cartSaveFilename = default, cartRtcFilename = default, cartStateFilename = default, cartPatchFilename = default, cartBreakpointFilename = default;
         bool isRunning = false, isPaused = false, isVerticalOrientation = false;
         double framesPerSecond = 0.0;
 
@@ -175,6 +175,14 @@ namespace StoicGoose.GLWindow
             }
 
             var ctrl = keyState.IsKeyDown(Keys.LeftControl) || keyState.IsKeyDown(Keys.RightControl);
+            if (!imguiBusy && !typing)
+            {
+                if (keyState.IsKeyPressed(Keys.F5) && isRunning)
+                    SaveEmulatorState();
+                else if (keyState.IsKeyPressed(Keys.F7) && isRunning)
+                    LoadEmulatorState();
+            }
+
             if (ctrl && !imguiBusy && !typing)
             {
                 if (keyState.IsKeyPressed(Keys.O))
@@ -492,6 +500,7 @@ namespace StoicGoose.GLWindow
             cartridgeFilename = filename;
             cartSaveFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.sav";
             cartRtcFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.rtc";
+            cartStateFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}.sst";
             cartPatchFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_patches.json";
             cartBreakpointFilename = $"{Path.GetFileNameWithoutExtension(cartridgeFilename)}_breakpoints.json";
 
@@ -659,6 +668,55 @@ namespace StoicGoose.GLWindow
 
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
             stream.Write(data, 0, data.Length);
+        }
+
+        private void SaveEmulatorState()
+        {
+            if (machine == null || !isRunning || string.IsNullOrEmpty(cartStateFilename))
+                return;
+
+            try
+            {
+                var data = machine.GetSaveState();
+                var path = Path.Combine(Program.SaveDataPath, cartStateFilename);
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateSaved");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save state: {ex.Message}");
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateSaveFailed");
+            }
+        }
+
+        private void LoadEmulatorState()
+        {
+            if (machine == null || !isRunning || string.IsNullOrEmpty(cartStateFilename))
+                return;
+
+            var path = Path.Combine(Program.SaveDataPath, cartStateFilename);
+            if (!File.Exists(path))
+            {
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+                return;
+            }
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                if (machine.LoadSaveState(data))
+                    statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoaded");
+                else
+                    statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save state from '{path}': {ex.Message}");
+                statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
         }
 
         private void SaveInternalEeprom()

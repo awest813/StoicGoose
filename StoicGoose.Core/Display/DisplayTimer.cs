@@ -1,4 +1,6 @@
-﻿namespace StoicGoose.Core.Display
+﻿using System.IO;
+
+namespace StoicGoose.Core.Display
 {
     public class DisplayTimer
     {
@@ -46,6 +48,22 @@
             if (expired && Repeating)
                 Reload();
             return expired;
+        }
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(enable);
+            writer.Write(Repeating);
+            writer.Write(Frequency);
+            writer.Write(Counter);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            enable = reader.ReadBoolean();
+            Repeating = reader.ReadBoolean();
+            Frequency = reader.ReadUInt16();
+            Counter = reader.ReadUInt16();
         }
     }
 }

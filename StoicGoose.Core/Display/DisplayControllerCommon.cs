@@ -6,7 +6,7 @@ using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Display
 {
-    public abstract class DisplayControllerCommon : IPortAccessComponent
+    public abstract partial class DisplayControllerCommon : IPortAccessComponent
     {
         public const int HorizontalDisp = 224;
         public const int HorizontalBlank = 32;
@@ -145,9 +145,10 @@ namespace StoicGoose.Core.Display
                 if (lineCurrent == VerticalDisp - 2)
                 {
                     spriteCountNextFrame = 0;
-                    for (var j = sprFirst; j < sprFirst + Math.Min(maxSpriteCount, sprCount); j++)
+                    for (var j = 0; j < Math.Min(maxSpriteCount, sprCount); j++)
                     {
-                        var k = (uint)((sprBase << 9) + (j << 2));
+                        var spriteIndex = (sprFirst + j) & 0x7F;
+                        var k = (uint)((sprBase << 9) + (spriteIndex << 2));
                         spriteDataNextFrame[spriteCountNextFrame++] = (uint)(machine.ReadMemory(k + 3) << 24 | machine.ReadMemory(k + 2) << 16 | machine.ReadMemory(k + 1) << 8 | machine.ReadMemory(k + 0));
                     }
                 }

@@ -65,6 +65,9 @@ namespace StoicGoose.Core.Interfaces
         byte[] GetRtcState();
         bool HasRtcSave { get; }
 
+        byte[] GetSaveState();
+        bool LoadSaveState(byte[] data);
+
         byte ReadMemory(uint address);
         void WriteMemory(uint address, byte value);
         byte ReadPort(ushort port);

@@ -73,6 +73,7 @@
 
             byte data;
 
+            public readonly byte Raw => data;
             public readonly Modes Mod => (Modes)((data >> 6) & 0b11);
             public readonly byte Reg => (byte)((data >> 3) & 0b111);
             public readonly byte Mem => (byte)((data >> 0) & 0b111);

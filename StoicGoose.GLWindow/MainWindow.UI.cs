@@ -144,6 +144,15 @@ namespace StoicGoose.GLWindow
                     updateAction: (s) => { s.IsEnabled = isRunning; })
                     { Shortcut = "Ctrl+R" },
                     new("-"),
+                    new(localization: "MainWindow.Menus.SaveState",
+                    clickAction: (_) => SaveEmulatorState(),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "F5" },
+                    new(localization: "MainWindow.Menus.LoadState",
+                    clickAction: (_) => LoadEmulatorState(),
+                    updateAction: (s) => { s.IsEnabled = isRunning; })
+                    { Shortcut = "F7" },
+                    new("-"),
                     new(localization: "MainWindow.Menus.Shutdown",
                     clickAction: (_) => { if (isRunning) { SaveVolatileData(); machine?.Shutdown(); displayTexture.Fill(0, 0, 0, 255); statusMessageItem.Label = Localizer.GetString("MainWindow.StatusMessageShutdown"); isRunning = false; } },
                     updateAction: (s) => { s.IsEnabled = isRunning; })

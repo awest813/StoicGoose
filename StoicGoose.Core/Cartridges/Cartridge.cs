@@ -1,7 +1,9 @@
 ﻿using StoicGoose.Common.Utilities;
 using StoicGoose.Core.EEPROMs;
 using StoicGoose.Core.Interfaces;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 
 namespace StoicGoose.Core.Cartridges
 {
@@ -140,6 +142,73 @@ namespace StoicGoose.Core.Cartridges
         public byte[] GetRtcState() => rtc?.ExportState();
 
         public void LoadRtcState(byte[] data) => rtc?.ImportState(data);
+
+        public void ExportState(BinaryWriter writer)
+        {
+            writer.Write(romBank2);
+            writer.Write(sramBank);
+            writer.Write(romBank0);
+            writer.Write(romBank1);
+            SaveStateIO.WriteBytes(writer, sram);
+
+            writer.Write(eeprom != null);
+            eeprom?.ExportState(writer);
+
+            writer.Write(rtc != null);
+            rtc?.ExportRuntimeState(writer);
+        }
+
+        public void ImportState(BinaryReader reader)
+        {
+            romBank2 = reader.ReadByte();
+            sramBank = reader.ReadByte();
+            romBank0 = reader.ReadByte();
+            romBank1 = reader.ReadByte();
+            LoadSram(SaveStateIO.ReadBytes(reader));
+
+            var hasEeprom = reader.ReadBoolean();
+            if (hasEeprom)
+            {
+                if (eeprom != null)
+                    eeprom.ImportState(reader);
+                else
+                    DiscardEepromState(reader);
+            }
+
+            var hasRtc = reader.ReadBoolean();
+            if (hasRtc)
+            {
+                if (rtc != null)
+                    rtc.ImportRuntimeState(reader);
+                else
+                    DiscardRtcRuntimeState(reader);
+            }
+        }
+
+        private static void DiscardEepromState(BinaryReader reader)
+        {
+            SaveStateIO.ReadBytes(reader);
+            reader.ReadInt32();
+            reader.ReadBoolean();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+        }
+
+        private static void DiscardRtcRuntimeState(BinaryReader reader)
+        {
+            SaveStateIO.ReadBytes(reader);
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadByte();
+            reader.ReadBoolean();
+            reader.ReadBoolean();
+            reader.ReadInt32();
+            reader.ReadInt32();
+            reader.ReadBoolean();
+        }
 
         public bool Step(int clockCyclesInStep)
         {

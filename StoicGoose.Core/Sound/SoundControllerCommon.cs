@@ -269,7 +269,8 @@ namespace StoicGoose.Core.Sound
                     break;
 
                 default:
-                    throw new NotImplementedException($"Unimplemented sound register read {port:X2}");
+                    retVal = 0x90;
+                    break;
             }
 
             return retVal;
@@ -385,7 +386,7 @@ namespace StoicGoose.Core.Sound
                     break;
 
                 default:
-                    throw new NotImplementedException($"Unimplemented sound register write {port:X2}");
+                    break;
             }
         }
 

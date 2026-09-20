@@ -463,6 +463,8 @@ namespace StoicGoose.WinForms
             emulationToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Emulation");
             pauseToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Pause");
             resetToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Reset");
+            saveStateToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.SaveState");
+            loadStateToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.LoadState");
             shutdownToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Shutdown");
             optionsToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.Options");
             screenSizeToolStripMenuItem.Text = Localizer.GetString("MainWindow.Menus.ScreenSize");
@@ -624,7 +626,7 @@ namespace StoicGoose.WinForms
             CreateDataBinding(enableCheatsToolStripMenuItem.DataBindings, nameof(enableCheatsToolStripMenuItem.Checked), Program.Configuration.General, nameof(Program.Configuration.General.EnableCheats));
             enableCheatsToolStripMenuItem.CheckedChanged += (s, e) => { emulatorHandler.Machine.ReadMemoryCallback = Program.Configuration.General.EnableCheats ? MachineReadMemoryCallback : default; };
 
-            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
         }
 
         private byte MachineReadMemoryCallback(uint address, byte value)
@@ -732,7 +734,7 @@ namespace StoicGoose.WinForms
             SizeAndPositionWindow();
             SetWindowTitleAndStatus();
 
-            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = true;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = true;
 
             Program.SaveConfiguration();
         }
@@ -873,7 +875,7 @@ namespace StoicGoose.WinForms
             emulatorHandler.Shutdown();
 
             pauseToolStripMenuItem.Checked = false;
-            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
+            cheatListToolStripMenuItem.Enabled = pauseToolStripMenuItem.Enabled = resetToolStripMenuItem.Enabled = saveStateToolStripMenuItem.Enabled = loadStateToolStripMenuItem.Enabled = shutdownToolStripMenuItem.Enabled = false;
             SetWindowTitleAndStatus();
         }
 
@@ -914,6 +916,78 @@ namespace StoicGoose.WinForms
         private void resetToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ResetEmulation();
+        }
+
+        private void saveStateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveEmulatorState();
+        }
+
+        private void loadStateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadEmulatorState();
+        }
+
+        private void SaveEmulatorState()
+        {
+            if (!emulatorHandler.IsRunning)
+                return;
+
+            var wasPaused = emulatorHandler.IsPaused;
+            if (!wasPaused)
+                PauseEmulation();
+
+            try
+            {
+                var data = emulatorHandler.Machine.GetSaveState();
+                var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sst");
+                using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                stream.Write(data, 0, data.Length);
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateSaved");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to write save state: {ex.Message}");
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateSaveFailed");
+            }
+
+            if (!wasPaused)
+                UnpauseEmulation();
+        }
+
+        private void LoadEmulatorState()
+        {
+            if (!emulatorHandler.IsRunning)
+                return;
+
+            var path = Path.Combine(Program.SaveDataPath, $"{Path.GetFileNameWithoutExtension(Program.Configuration.General.RecentFiles.First())}.sst");
+            if (!File.Exists(path))
+            {
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+                return;
+            }
+
+            var wasPaused = emulatorHandler.IsPaused;
+            if (!wasPaused)
+                PauseEmulation();
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var data = new byte[stream.Length];
+                stream.ReadExactly(data);
+                tsslStatus.Text = emulatorHandler.Machine.LoadSaveState(data)
+                    ? Localizer.GetString("MainWindow.StatusMessageStateLoaded")
+                    : Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteEvent(LogSeverity.Error, this, $"Failed to load save state from '{path}': {ex.Message}");
+                tsslStatus.Text = Localizer.GetString("MainWindow.StatusMessageStateLoadFailed");
+            }
+
+            if (!wasPaused)
+                UnpauseEmulation();
         }
 
         private void pauseToolStripMenuItem_Click(object sender, EventArgs e)

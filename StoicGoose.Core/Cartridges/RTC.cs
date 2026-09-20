@@ -1,7 +1,9 @@
 ﻿using StoicGoose.Common.Utilities;
 using StoicGoose.Core.Interfaces;
 using StoicGoose.Core.Machines;
+using StoicGoose.Core.SaveStates;
 using System;
+using System.IO;
 using static StoicGoose.Common.Utilities.BitHandling;
 
 namespace StoicGoose.Core.Cartridges
@@ -134,6 +136,32 @@ namespace StoicGoose.Core.Cartridges
             intFE = IsBitSet(data[8], 6);
 
             intRegister = (ushort)(data[9] | (data[10] << 8));
+        }
+
+        public void ExportRuntimeState(BinaryWriter writer)
+        {
+            SaveStateIO.WriteBytes(writer, ExportState());
+            writer.Write(wsData);
+            writer.Write(payloadIndex);
+            writer.Write(command);
+            writer.Write(isReadAccess);
+            writer.Write(ackPending);
+            writer.Write(cycleCount);
+            writer.Write(freqCycleCount);
+            writer.Write(minuteEdgePending);
+        }
+
+        public void ImportRuntimeState(BinaryReader reader)
+        {
+            ImportState(SaveStateIO.ReadBytes(reader));
+            wsData = reader.ReadByte();
+            payloadIndex = reader.ReadByte();
+            command = reader.ReadByte();
+            isReadAccess = reader.ReadBoolean();
+            ackPending = reader.ReadBoolean();
+            cycleCount = reader.ReadInt32();
+            freqCycleCount = reader.ReadInt32();
+            minuteEdgePending = reader.ReadBoolean();
         }
 
         public void Shutdown()

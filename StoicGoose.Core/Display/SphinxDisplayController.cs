@@ -1,5 +1,6 @@
 ﻿using StoicGoose.Common.Attributes;
 using StoicGoose.Core.Interfaces;
+using System.IO;
 
 using static StoicGoose.Common.Utilities.BitHandling;
 
@@ -219,6 +220,26 @@ namespace StoicGoose.Core.Display
                     base.WritePort(port, value);
                     break;
             }
+        }
+
+        public override void ExportState(BinaryWriter writer)
+        {
+            base.ExportState(writer);
+            writer.Write(backColorPalette);
+            writer.Write(lcdContrastHigh);
+            writer.Write(displayPackedFormatSet);
+            writer.Write(display4bppFlagSet);
+            writer.Write(displayColorFlagSet);
+        }
+
+        public override void ImportState(BinaryReader reader)
+        {
+            base.ImportState(reader);
+            backColorPalette = reader.ReadByte();
+            lcdContrastHigh = reader.ReadBoolean();
+            displayPackedFormatSet = reader.ReadBoolean();
+            display4bppFlagSet = reader.ReadBoolean();
+            displayColorFlagSet = reader.ReadBoolean();
         }
 
         [Port("REG_BACK_COLOR", 0x001)]
